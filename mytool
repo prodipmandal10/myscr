@@ -6,62 +6,116 @@ RED="\e[31m"
 BLUE="\e[34m"
 YELLOW="\e[33m"
 CYAN="\e[36m"
+MAGENTA="\e[35m"
 RESET="\e[0m"
 
 while true; do
     clear
+    echo -e "${YELLOW}=====================================================${RESET}"
+    echo -e "${MAGENTA}                 👑 MADE BY PRODIP 👑                ${RESET}"
+    echo -e "${YELLOW}=====================================================${RESET}"
+    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.0 🌟      ${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
-    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V2.0 🌟      ${RESET}"
-    echo -e "${BLUE}=====================================================${RESET}"
-    echo -e "${CYAN}1) 📂 SHOW ALL PROJECTS (Running Websites)${RESET}"
-    echo -e "${CYAN}2) 💾 BACKUP A SPECIFIC PROJECT (To GDrive)${RESET}"
-    echo -e "${CYAN}3) 🚀 INSTALL NEW PROJECT (From GDrive Link)${RESET}"
-    echo -e "${RED}4) 🗑️  DELETE A PROJECT (Remove Website)${RESET}"
-    echo -e "${YELLOW}5) ⚙️  INSTALL & SETUP RCLONE (Auto)${RESET}"
-    echo -e "${CYAN}6) 🛡️  ADD SECURITY (Auto Update & Firewall)${RESET}"
-    echo -e "${YELLOW}7) ⏰ SET AUTO NIGHTLY BACKUP (11:00 PM)${RESET}"
+    echo -e "${CYAN}1) 🛠️  INITIAL SETUP (Install Apache, PHP, MySQL)${RESET}"
+    echo -e "${CYAN}2) 🌐 SETUP DOMAIN (Link Domain to a Project)${RESET}"
+    echo -e "${CYAN}3) 📊 SERVER HEALTH CHECK (Live Status)${RESET}"
+    echo -e "${BLUE}-----------------------------------------------------${RESET}"
+    echo -e "${CYAN}4) 📂 SHOW ALL PROJECTS (Running Websites)${RESET}"
+    echo -e "${CYAN}5) 🚀 INSTALL NEW PROJECT (From GDrive Link)${RESET}"
+    echo -e "${CYAN}6) 💾 BACKUP A SPECIFIC PROJECT (To GDrive)${RESET}"
+    echo -e "${RED}7) 🗑️  DELETE A PROJECT (Remove Website)${RESET}"
+    echo -e "${YELLOW}8) ⚙️  INSTALL & SETUP RCLONE (Auto)${RESET}"
+    echo -e "${CYAN}9) 🛡️  ADD SECURITY (Auto Update & Firewall)${RESET}"
+    echo -e "${YELLOW}10) ⏰ SET AUTO NIGHTLY BACKUP (11:00 PM)${RESET}"
     echo -e "${RED}0) ❌ EXIT${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
-    read -p "Select an option [0-7]: " choice
+    read -p "Select an option [0-10]: " choice
 
     case $choice in
         1)
-            echo -e "\n${YELLOW}[*] Scanning Server for Projects...${RESET}"
-            echo -e "Found the following projects in /var/www/html/ :"
-            ls -d /var/www/html/*/ | awk -F/ '{print "👉 " $(NF-1)}'
-            echo "-----------------------------------"
-            read -p "Press Enter to return to menu..."
+            echo -e "\n${YELLOW}[*] INITIAL SERVER SETUP (Auto Install Packages)...${RESET}"
+            echo -e "${GREEN}[*] Updating system...${RESET}"
+            sudo apt update -y && sudo apt upgrade -y
+            echo -e "${GREEN}[*] Installing Apache, MySQL, PHP, and essential tools...${RESET}"
+            sudo apt install apache2 mysql-server php libapache2-mod-php php-mysql zip unzip curl wget -y
+            sudo a2enmod rewrite
+            sudo systemctl restart apache2
+            echo -e "${GREEN}[+] Setup Complete! Your server is ready for projects.${RESET}"
+            read -p "Press Enter to return..."
             ;;
-        
-        2)
-            echo -e "\n${YELLOW}[*] BACKUP SPECIFIC PROJECT TO GDRIVE${RESET}"
-            echo "Available Projects:"
-            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}'
-            read -p "Enter the project folder name exactly as above: " FOLDER_NAME
             
-            if [ -d "/var/www/html/$FOLDER_NAME" ]; then
-                DATE=$(date +"%d-%b-%Y_%I-%M-%p")
-                BACKUP_NAME="${FOLDER_NAME}_Backup_$DATE.zip"
+        2)
+            echo -e "\n${YELLOW}[*] SETUP DOMAIN (Link Domain to Project)${RESET}"
+            echo "Available Projects:"
+            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null || echo "No projects found!"
+            read -p "Enter the project folder name (e.g. rainbow): " PROJ_DIR
+            
+            if [ -d "/var/www/html/$PROJ_DIR" ]; then
+                read -p "Enter your Domain Name (e.g. example.com): " DOMAIN_NAME
+                CONF_FILE="/etc/apache2/sites-available/${DOMAIN_NAME}.conf"
                 
-                echo -e "${GREEN}[*] Exporting Database to project folder...${RESET}"
-                sudo mysqldump --all-databases > /var/www/html/$FOLDER_NAME/database_backup.sql
-                
-                echo -e "${GREEN}[*] Zipping project files cleanly (Without long folder paths)...${RESET}"
-                cd /var/www/html/$FOLDER_NAME && sudo zip -r -q /root/$BACKUP_NAME .
-                
-                echo -e "${GREEN}[*] Uploading to Google Drive (gdrive:Server_Backups)...${RESET}"
-                rclone copy /root/$BACKUP_NAME gdrive:Server_Backups/
-                
-                # Cleanup
-                sudo rm /var/www/html/$FOLDER_NAME/database_backup.sql /root/$BACKUP_NAME
-                echo -e "${GREEN}[+] Backup Successful! Check your Google Drive.${RESET}"
+                echo -e "${GREEN}[*] Creating VirtualHost configuration for ${DOMAIN_NAME}...${RESET}"
+                sudo bash -c "cat > $CONF_FILE" <<EOF
+<VirtualHost *:80>
+    ServerName $DOMAIN_NAME
+    ServerAlias www.$DOMAIN_NAME
+    DocumentRoot /var/www/html/$PROJ_DIR
+
+    <Directory /var/www/html/$PROJ_DIR>
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+EOF
+                sudo a2ensite ${DOMAIN_NAME}.conf
+                sudo systemctl restart apache2
+                echo -e "${GREEN}[+] Domain ${DOMAIN_NAME} successfully linked to folder '${PROJ_DIR}'!${RESET}"
+                echo -e "${YELLOW}Note: Make sure your Domain's DNS (A Record) is pointing to this VPS IP.${RESET}"
             else
-                echo -e "${RED}[-] Project folder '$FOLDER_NAME' not found!${RESET}"
+                echo -e "${RED}[-] Folder '$PROJ_DIR' not found! Please create/install project first.${RESET}"
             fi
             read -p "Press Enter to return..."
             ;;
             
         3)
+            echo -e "\n${YELLOW}[*] SERVER HEALTH CHECK (Live Status)${RESET}"
+            
+            # Check Apache
+            if systemctl is-active --quiet apache2; then
+                echo -e "🌐 Web Server (Apache) : ${GREEN}🟢 RUNNING${RESET}"
+            else
+                echo -e "🌐 Web Server (Apache) : ${RED}🔴 STOPPED${RESET}"
+            fi
+            
+            # Check MySQL
+            if systemctl is-active --quiet mysql; then
+                echo -e "🗄️  Database (MySQL)  : ${GREEN}🟢 RUNNING${RESET}"
+            else
+                echo -e "🗄️  Database (MySQL)  : ${RED}🔴 STOPPED${RESET}"
+            fi
+            
+            # Check Firewall
+            UFW_STATUS=$(sudo ufw status | grep -w "Status")
+            if [[ "$UFW_STATUS" == *"active"* ]]; then
+                echo -e "🛡️  Firewall (UFW)    : ${GREEN}🟢 ACTIVE${RESET}"
+            else
+                echo -e "🛡️  Firewall (UFW)    : ${RED}🔴 INACTIVE${RESET}"
+            fi
+            
+            echo -e "\n${YELLOW}System Uptime:${RESET}"
+            uptime -p
+            read -p "Press Enter to return..."
+            ;;
+
+        4)
+            echo -e "\n${YELLOW}[*] Scanning Server for Projects...${RESET}"
+            echo -e "Found the following projects in /var/www/html/ :"
+            ls -d /var/www/html/*/ | awk -F/ '{print "👉 " $(NF-1)}' 2>/dev/null || echo "No projects found."
+            echo "-----------------------------------"
+            read -p "Press Enter to return to menu..."
+            ;;
+        
+        5)
             echo -e "\n${YELLOW}[*] INSTALL NEW PROJECT AUTO${RESET}"
             read -p "Enter Google Drive Share Link: " LINK
             FILE_ID=$(echo "$LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
@@ -70,8 +124,6 @@ while true; do
                 echo -e "${RED}[-] Invalid Link! Could not extract ID.${RESET}"
             else
                 read -p "Enter a NEW folder name for this project (No Spaces! e.g. rainbow): " NEW_DIR
-                
-                # Remove spaces from the input just to be safe
                 NEW_DIR=$(echo "$NEW_DIR" | tr -d ' ')
                 
                 if [ -d "/var/www/html/$NEW_DIR" ]; then
@@ -83,7 +135,6 @@ while true; do
                     sudo unzip -o /root/temp.zip -d /var/www/html/$NEW_DIR
                     sudo rm /root/temp.zip
                     
-                    # Auto Restore Database!
                     if [ -f "/var/www/html/$NEW_DIR/database_backup.sql" ]; then
                         echo -e "${GREEN}[*] Database found! Restoring automatically...${RESET}"
                         sudo mysql < "/var/www/html/$NEW_DIR/database_backup.sql"
@@ -91,17 +142,45 @@ while true; do
                         echo -e "${GREEN}[+] Database Restored Successfully!${RESET}"
                     fi
 
-                    sudo chmod -R 777 /var/www/html/$NEW_DIR
+                    sudo chown -R www-data:www-data /var/www/html/$NEW_DIR
+                    sudo chmod -R 755 /var/www/html/$NEW_DIR
                     echo -e "${GREEN}[+] Project Installed Successfully! Link: http://YOUR_IP/$NEW_DIR ${RESET}"
                 fi
             fi
             read -p "Press Enter to return..."
             ;;
             
-        4)
+        6)
+            echo -e "\n${YELLOW}[*] BACKUP SPECIFIC PROJECT TO GDRIVE${RESET}"
+            echo "Available Projects:"
+            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null
+            read -p "Enter the project folder name exactly as above: " FOLDER_NAME
+            
+            if [ -d "/var/www/html/$FOLDER_NAME" ]; then
+                DATE=$(date +"%d-%b-%Y_%I-%M-%p")
+                BACKUP_NAME="${FOLDER_NAME}_Backup_$DATE.zip"
+                
+                echo -e "${GREEN}[*] Exporting Database to project folder...${RESET}"
+                sudo mysqldump --all-databases > /var/www/html/$FOLDER_NAME/database_backup.sql
+                
+                echo -e "${GREEN}[*] Zipping project files cleanly...${RESET}"
+                cd /var/www/html/$FOLDER_NAME && sudo zip -r -q /root/$BACKUP_NAME .
+                
+                echo -e "${GREEN}[*] Uploading to Google Drive...${RESET}"
+                rclone copy /root/$BACKUP_NAME gdrive:Server_Backups/
+                
+                sudo rm /var/www/html/$FOLDER_NAME/database_backup.sql /root/$BACKUP_NAME
+                echo -e "${GREEN}[+] Backup Successful! Check your Google Drive.${RESET}"
+            else
+                echo -e "${RED}[-] Project folder '$FOLDER_NAME' not found!${RESET}"
+            fi
+            read -p "Press Enter to return..."
+            ;;
+            
+        7)
             echo -e "\n${RED}[*] DELETE A PROJECT${RESET}"
             echo "Available Projects:"
-            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}'
+            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null
             read -p "Enter the project folder name you want to DELETE: " DEL_DIR
             
             if [ -d "/var/www/html/$DEL_DIR" ]; then
@@ -119,7 +198,7 @@ while true; do
             read -p "Press Enter to return..."
             ;;
             
-        5)
+        8)
             echo -e "\n${YELLOW}[*] INSTALL & SETUP RCLONE${RESET}"
             if ! command -v rclone &> /dev/null; then
                 echo -e "${GREEN}[*] Rclone not found. Installing now...${RESET}"
@@ -132,11 +211,11 @@ while true; do
             read -p "Press Enter to return to menu..."
             ;;
             
-        6)
+        9)
             echo -e "\n${YELLOW}[*] ADD SECURITY (Auto Update & Firewall)...${RESET}"
             echo -e "${GREEN}[*] Updating Server Packages...${RESET}"
             sudo apt-get update -y && sudo apt-get upgrade -y
-            echo -e "${GREEN}[*] Installing Fail2Ban to block hackers...${RESET}"
+            echo -e "${GREEN}[*] Installing Fail2Ban...${RESET}"
             sudo apt-get install fail2ban -y
             sudo systemctl enable fail2ban
             sudo systemctl start fail2ban
@@ -144,7 +223,7 @@ while true; do
             read -p "Press Enter to return..."
             ;;
             
-        7)
+        10)
             echo -e "\n${YELLOW}[*] AUTO SET NIGHTLY BACKUP (11:00 PM)${RESET}"
             cat << 'EOF' > /root/nightly_master_backup.sh
 #!/bin/bash
@@ -153,25 +232,15 @@ sudo mysqldump --all-databases > /root/all_db_nightly.sql
 for dir in /var/www/html/*/; do
     PROJ_NAME=$(basename "$dir")
     ZIP_NAME="${PROJ_NAME}_AutoBackup_${DATE}.zip"
-    
-    # Copy DB to project folder cleanly
     sudo cp /root/all_db_nightly.sql "$dir/database_backup.sql"
-    
-    # Zip cleanly without absolute paths
     cd "$dir" && sudo zip -r -q /root/$ZIP_NAME .
-    
-    # Remove DB from project folder
     sudo rm "$dir/database_backup.sql"
-    
-    # Upload and clear zip
     rclone copy /root/$ZIP_NAME gdrive:Server_Backups/Auto_Nightly/
     rm /root/$ZIP_NAME
 done
 rm /root/all_db_nightly.sql
 EOF
             sudo chmod +x /root/nightly_master_backup.sh
-            
-            # Setup Cron Job for 11 PM
             CRON_JOB="0 23 * * * /root/nightly_master_backup.sh > /root/backup_log.txt 2>&1"
             (crontab -l 2>/dev/null | grep -v "nightly_master_backup.sh"; echo "$CRON_JOB") | crontab -
             echo -e "${GREEN}[+] Daily Auto Backup scheduled at 11:00 PM for ALL projects!${RESET}"
@@ -180,7 +249,7 @@ EOF
             
         0)
             clear
-            echo -e "${GREEN}Exiting Master Tool. Server is safe. Have a great day, Bandhu!${RESET}"
+            echo -e "${GREEN}Exiting Master Tool. Server is safe. Have a great day, Prodip Bandhu!${RESET}"
             exit 0
             ;;
             
