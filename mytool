@@ -11,7 +11,7 @@ RESET="\e[0m"
 while true; do
     clear
     echo -e "${BLUE}=====================================================${RESET}"
-    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL 🌟      ${RESET}"
+    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V2.0 🌟      ${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
     echo -e "${CYAN}1) 📂 SHOW ALL PROJECTS (Running Websites)${RESET}"
     echo -e "${CYAN}2) 💾 BACKUP A SPECIFIC PROJECT (To GDrive)${RESET}"
@@ -43,16 +43,17 @@ while true; do
                 DATE=$(date +"%d-%b-%Y_%I-%M-%p")
                 BACKUP_NAME="${FOLDER_NAME}_Backup_$DATE.zip"
                 
-                echo -e "${GREEN}[*] Exporting ALL Databases (Safe Mode)...${RESET}"
-                sudo mysqldump --all-databases > /root/all_db_backup.sql
+                echo -e "${GREEN}[*] Exporting Database to project folder...${RESET}"
+                sudo mysqldump --all-databases > /var/www/html/$FOLDER_NAME/database_backup.sql
                 
-                echo -e "${GREEN}[*] Zipping project files and database...${RESET}"
-                sudo zip -r -q /root/$BACKUP_NAME /var/www/html/$FOLDER_NAME /root/all_db_backup.sql
+                echo -e "${GREEN}[*] Zipping project files cleanly (Without long folder paths)...${RESET}"
+                cd /var/www/html/$FOLDER_NAME && sudo zip -r -q /root/$BACKUP_NAME .
                 
                 echo -e "${GREEN}[*] Uploading to Google Drive (gdrive:Server_Backups)...${RESET}"
                 rclone copy /root/$BACKUP_NAME gdrive:Server_Backups/
                 
-                rm /root/all_db_backup.sql /root/$BACKUP_NAME
+                # Cleanup
+                sudo rm /var/www/html/$FOLDER_NAME/database_backup.sql /root/$BACKUP_NAME
                 echo -e "${GREEN}[+] Backup Successful! Check your Google Drive.${RESET}"
             else
                 echo -e "${RED}[-] Project folder '$FOLDER_NAME' not found!${RESET}"
@@ -68,15 +69,28 @@ while true; do
             if [ -z "$FILE_ID" ]; then
                 echo -e "${RED}[-] Invalid Link! Could not extract ID.${RESET}"
             else
-                read -p "Enter a NEW folder name for this project (e.g. newsite): " NEW_DIR
+                read -p "Enter a NEW folder name for this project (No Spaces! e.g. rainbow): " NEW_DIR
+                
+                # Remove spaces from the input just to be safe
+                NEW_DIR=$(echo "$NEW_DIR" | tr -d ' ')
+                
                 if [ -d "/var/www/html/$NEW_DIR" ]; then
                     echo -e "${RED}[-] Warning: Folder '$NEW_DIR' already exists! Choose a different name.${RESET}"
                 else
-                    echo -e "${GREEN}[*] Downloading and Extracting...${RESET}"
+                    echo -e "${GREEN}[*] Downloading and Extracting cleanly...${RESET}"
                     sudo mkdir -p /var/www/html/$NEW_DIR
                     sudo wget -qO /root/temp.zip "https://drive.google.com/uc?export=download&id=$FILE_ID"
                     sudo unzip -o /root/temp.zip -d /var/www/html/$NEW_DIR
                     sudo rm /root/temp.zip
+                    
+                    # Auto Restore Database!
+                    if [ -f "/var/www/html/$NEW_DIR/database_backup.sql" ]; then
+                        echo -e "${GREEN}[*] Database found! Restoring automatically...${RESET}"
+                        sudo mysql < "/var/www/html/$NEW_DIR/database_backup.sql"
+                        sudo rm "/var/www/html/$NEW_DIR/database_backup.sql"
+                        echo -e "${GREEN}[+] Database Restored Successfully!${RESET}"
+                    fi
+
                     sudo chmod -R 777 /var/www/html/$NEW_DIR
                     echo -e "${GREEN}[+] Project Installed Successfully! Link: http://YOUR_IP/$NEW_DIR ${RESET}"
                 fi
@@ -132,7 +146,6 @@ while true; do
             
         7)
             echo -e "\n${YELLOW}[*] AUTO SET NIGHTLY BACKUP (11:00 PM)${RESET}"
-            # Create the auto backup script logic
             cat << 'EOF' > /root/nightly_master_backup.sh
 #!/bin/bash
 DATE=$(date +"%d-%b-%Y")
@@ -140,7 +153,17 @@ sudo mysqldump --all-databases > /root/all_db_nightly.sql
 for dir in /var/www/html/*/; do
     PROJ_NAME=$(basename "$dir")
     ZIP_NAME="${PROJ_NAME}_AutoBackup_${DATE}.zip"
-    zip -r -q /root/$ZIP_NAME "$dir" /root/all_db_nightly.sql
+    
+    # Copy DB to project folder cleanly
+    sudo cp /root/all_db_nightly.sql "$dir/database_backup.sql"
+    
+    # Zip cleanly without absolute paths
+    cd "$dir" && sudo zip -r -q /root/$ZIP_NAME .
+    
+    # Remove DB from project folder
+    sudo rm "$dir/database_backup.sql"
+    
+    # Upload and clear zip
     rclone copy /root/$ZIP_NAME gdrive:Server_Backups/Auto_Nightly/
     rm /root/$ZIP_NAME
 done
