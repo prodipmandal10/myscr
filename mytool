@@ -1,1 +1,169 @@
+#!/bin/bash
 
+# Colors for design
+GREEN="\e[32m"
+RED="\e[31m"
+BLUE="\e[34m"
+YELLOW="\e[33m"
+CYAN="\e[36m"
+RESET="\e[0m"
+
+while true; do
+    clear
+    echo -e "${BLUE}=====================================================${RESET}"
+    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL 🌟      ${RESET}"
+    echo -e "${BLUE}=====================================================${RESET}"
+    echo -e "${CYAN}1) 📂 SHOW ALL PROJECTS (Running Websites)${RESET}"
+    echo -e "${CYAN}2) 💾 BACKUP A SPECIFIC PROJECT (To GDrive)${RESET}"
+    echo -e "${CYAN}3) 🚀 INSTALL NEW PROJECT (From GDrive Link)${RESET}"
+    echo -e "${RED}4) 🗑️  DELETE A PROJECT (Remove Website)${RESET}"
+    echo -e "${YELLOW}5) ⚙️  INSTALL & SETUP RCLONE (Auto)${RESET}"
+    echo -e "${CYAN}6) 🛡️  ADD SECURITY (Auto Update & Firewall)${RESET}"
+    echo -e "${YELLOW}7) ⏰ SET AUTO NIGHTLY BACKUP (11:00 PM)${RESET}"
+    echo -e "${RED}0) ❌ EXIT${RESET}"
+    echo -e "${BLUE}=====================================================${RESET}"
+    read -p "Select an option [0-7]: " choice
+
+    case $choice in
+        1)
+            echo -e "\n${YELLOW}[*] Scanning Server for Projects...${RESET}"
+            echo -e "Found the following projects in /var/www/html/ :"
+            ls -d /var/www/html/*/ | awk -F/ '{print "👉 " $(NF-1)}'
+            echo "-----------------------------------"
+            read -p "Press Enter to return to menu..."
+            ;;
+        
+        2)
+            echo -e "\n${YELLOW}[*] BACKUP SPECIFIC PROJECT TO GDRIVE${RESET}"
+            echo "Available Projects:"
+            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}'
+            read -p "Enter the project folder name exactly as above: " FOLDER_NAME
+            
+            if [ -d "/var/www/html/$FOLDER_NAME" ]; then
+                DATE=$(date +"%d-%b-%Y_%I-%M-%p")
+                BACKUP_NAME="${FOLDER_NAME}_Backup_$DATE.zip"
+                
+                echo -e "${GREEN}[*] Exporting ALL Databases (Safe Mode)...${RESET}"
+                sudo mysqldump --all-databases > /root/all_db_backup.sql
+                
+                echo -e "${GREEN}[*] Zipping project files and database...${RESET}"
+                sudo zip -r -q /root/$BACKUP_NAME /var/www/html/$FOLDER_NAME /root/all_db_backup.sql
+                
+                echo -e "${GREEN}[*] Uploading to Google Drive (gdrive:Server_Backups)...${RESET}"
+                rclone copy /root/$BACKUP_NAME gdrive:Server_Backups/
+                
+                rm /root/all_db_backup.sql /root/$BACKUP_NAME
+                echo -e "${GREEN}[+] Backup Successful! Check your Google Drive.${RESET}"
+            else
+                echo -e "${RED}[-] Project folder '$FOLDER_NAME' not found!${RESET}"
+            fi
+            read -p "Press Enter to return..."
+            ;;
+            
+        3)
+            echo -e "\n${YELLOW}[*] INSTALL NEW PROJECT AUTO${RESET}"
+            read -p "Enter Google Drive Share Link: " LINK
+            FILE_ID=$(echo "$LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
+            
+            if [ -z "$FILE_ID" ]; then
+                echo -e "${RED}[-] Invalid Link! Could not extract ID.${RESET}"
+            else
+                read -p "Enter a NEW folder name for this project (e.g. newsite): " NEW_DIR
+                if [ -d "/var/www/html/$NEW_DIR" ]; then
+                    echo -e "${RED}[-] Warning: Folder '$NEW_DIR' already exists! Choose a different name.${RESET}"
+                else
+                    echo -e "${GREEN}[*] Downloading and Extracting...${RESET}"
+                    sudo mkdir -p /var/www/html/$NEW_DIR
+                    sudo wget -qO /root/temp.zip "https://drive.google.com/uc?export=download&id=$FILE_ID"
+                    sudo unzip -o /root/temp.zip -d /var/www/html/$NEW_DIR
+                    sudo rm /root/temp.zip
+                    sudo chmod -R 777 /var/www/html/$NEW_DIR
+                    echo -e "${GREEN}[+] Project Installed Successfully! Link: http://YOUR_IP/$NEW_DIR ${RESET}"
+                fi
+            fi
+            read -p "Press Enter to return..."
+            ;;
+            
+        4)
+            echo -e "\n${RED}[*] DELETE A PROJECT${RESET}"
+            echo "Available Projects:"
+            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}'
+            read -p "Enter the project folder name you want to DELETE: " DEL_DIR
+            
+            if [ -d "/var/www/html/$DEL_DIR" ]; then
+                echo -e "${RED}WARNING: You are about to permanently delete '$DEL_DIR'.${RESET}"
+                read -p "Type 'YES' to confirm deletion: " CONFIRM
+                if [ "$CONFIRM" == "YES" ]; then
+                    sudo rm -rf /var/www/html/$DEL_DIR
+                    echo -e "${GREEN}[+] Project '$DEL_DIR' deleted successfully!${RESET}"
+                else
+                    echo -e "${YELLOW}[*] Deletion cancelled.${RESET}"
+                fi
+            else
+                echo -e "${RED}[-] Folder not found!${RESET}"
+            fi
+            read -p "Press Enter to return..."
+            ;;
+            
+        5)
+            echo -e "\n${YELLOW}[*] INSTALL & SETUP RCLONE${RESET}"
+            if ! command -v rclone &> /dev/null; then
+                echo -e "${GREEN}[*] Rclone not found. Installing now...${RESET}"
+                sudo -v ; curl https://rclone.org/install.sh | sudo bash
+            else
+                echo -e "${GREEN}[+] Rclone is already installed!${RESET}"
+            fi
+            echo -e "${YELLOW}[*] Opening Rclone Config... (Press 'n' for new remote, name it 'gdrive')${RESET}"
+            rclone config
+            read -p "Press Enter to return to menu..."
+            ;;
+            
+        6)
+            echo -e "\n${YELLOW}[*] ADD SECURITY (Auto Update & Firewall)...${RESET}"
+            echo -e "${GREEN}[*] Updating Server Packages...${RESET}"
+            sudo apt-get update -y && sudo apt-get upgrade -y
+            echo -e "${GREEN}[*] Installing Fail2Ban to block hackers...${RESET}"
+            sudo apt-get install fail2ban -y
+            sudo systemctl enable fail2ban
+            sudo systemctl start fail2ban
+            echo -e "${GREEN}[+] Security Updated and Firewall Protected!${RESET}"
+            read -p "Press Enter to return..."
+            ;;
+            
+        7)
+            echo -e "\n${YELLOW}[*] AUTO SET NIGHTLY BACKUP (11:00 PM)${RESET}"
+            # Create the auto backup script logic
+            cat << 'EOF' > /root/nightly_master_backup.sh
+#!/bin/bash
+DATE=$(date +"%d-%b-%Y")
+sudo mysqldump --all-databases > /root/all_db_nightly.sql
+for dir in /var/www/html/*/; do
+    PROJ_NAME=$(basename "$dir")
+    ZIP_NAME="${PROJ_NAME}_AutoBackup_${DATE}.zip"
+    zip -r -q /root/$ZIP_NAME "$dir" /root/all_db_nightly.sql
+    rclone copy /root/$ZIP_NAME gdrive:Server_Backups/Auto_Nightly/
+    rm /root/$ZIP_NAME
+done
+rm /root/all_db_nightly.sql
+EOF
+            sudo chmod +x /root/nightly_master_backup.sh
+            
+            # Setup Cron Job for 11 PM
+            CRON_JOB="0 23 * * * /root/nightly_master_backup.sh > /root/backup_log.txt 2>&1"
+            (crontab -l 2>/dev/null | grep -v "nightly_master_backup.sh"; echo "$CRON_JOB") | crontab -
+            echo -e "${GREEN}[+] Daily Auto Backup scheduled at 11:00 PM for ALL projects!${RESET}"
+            read -p "Press Enter to return..."
+            ;;
+            
+        0)
+            clear
+            echo -e "${GREEN}Exiting Master Tool. Server is safe. Have a great day, Bandhu!${RESET}"
+            exit 0
+            ;;
+            
+        *)
+            echo -e "${RED}Invalid Option! Please try again.${RESET}"
+            sleep 1
+            ;;
+    esac
+done
