@@ -14,7 +14,7 @@ while true; do
     echo -e "${YELLOW}=====================================================${RESET}"
     echo -e "${MAGENTA}                 👑 MADE BY PRODIP 👑                ${RESET}"
     echo -e "${YELLOW}=====================================================${RESET}"
-    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.0 🌟      ${RESET}"
+    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.1 🌟      ${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
     echo -e "${CYAN}1) 🛠️  INITIAL SETUP (Install Apache, PHP, MySQL)${RESET}"
     echo -e "${CYAN}2) 🌐 SETUP DOMAIN (Link Domain to a Project)${RESET}"
@@ -27,9 +27,10 @@ while true; do
     echo -e "${YELLOW}8) ⚙️  INSTALL & SETUP RCLONE (Auto)${RESET}"
     echo -e "${CYAN}9) 🛡️  ADD SECURITY (Auto Update & Firewall)${RESET}"
     echo -e "${YELLOW}10) ⏰ SET AUTO NIGHTLY BACKUP (11:00 PM)${RESET}"
+    echo -e "${GREEN}11) 🔒 AUTO SSL (HTTPS) SETUP (Certbot)${RESET}"
     echo -e "${RED}0) ❌ EXIT${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
-    read -p "Select an option [0-10]: " choice
+    read -p "Select an option [0-11]: " choice
 
     case $choice in
         1)
@@ -38,6 +39,10 @@ while true; do
             sudo apt update -y && sudo apt upgrade -y
             echo -e "${GREEN}[*] Installing Apache, MySQL, PHP, and essential tools...${RESET}"
             sudo apt install apache2 mysql-server php libapache2-mod-php php-mysql zip unzip curl wget -y
+            
+            echo -e "${GREEN}[*] Fixing MySQL Database Permissions (For Admin User)...${RESET}"
+            sudo mysql -e "CREATE USER IF NOT EXISTS 'admin'@'localhost' IDENTIFIED WITH mysql_native_password BY '12345'; GRANT ALL PRIVILEGES ON *.* TO 'admin'@'localhost' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+            
             sudo a2enmod rewrite
             sudo systemctl restart apache2
             echo -e "${GREEN}[+] Setup Complete! Your server is ready for projects.${RESET}"
@@ -247,6 +252,26 @@ EOF
             read -p "Press Enter to return..."
             ;;
             
+        11)
+            echo -e "\n${YELLOW}[*] AUTO SSL (HTTPS) SETUP${RESET}"
+            read -p "Enter Domain Name (e.g. example.com): " SSL_DOMAIN
+            read -p "Enter your Email (for SSL notice): " SSL_EMAIL
+            
+            echo -e "${GREEN}[*] Installing Certbot (if not installed)...${RESET}"
+            sudo apt install certbot python3-certbot-apache -y >/dev/null 2>&1
+            
+            echo -e "${GREEN}[*] Applying SSL Certificate... Please wait!${RESET}"
+            # This command bypasses all the Y/N questions
+            sudo certbot --apache -d $SSL_DOMAIN -d www.$SSL_DOMAIN --non-interactive --agree-tos -m $SSL_EMAIL --redirect
+            
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}[+] SSL Installed Successfully! Your site is now secure (HTTPS).${RESET}"
+            else
+                echo -e "${RED}[-] SSL Setup Failed! Check if your domain is pointing to this server's IP.${RESET}"
+            fi
+            read -p "Press Enter to return..."
+            ;;
+
         0)
             clear
             echo -e "${GREEN}Exiting Master Tool. Server is safe. Have a great day, Prodip Bandhu!${RESET}"
