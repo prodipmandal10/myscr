@@ -14,7 +14,7 @@ while true; do
     echo -e "${YELLOW}=====================================================${RESET}"
     echo -e "${MAGENTA}                 👑 MADE BY PRODIP 👑                ${RESET}"
     echo -e "${YELLOW}=====================================================${RESET}"
-    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.1 🌟      ${RESET}"
+    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.2 🌟      ${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
     echo -e "${CYAN}1) 🛠️  INITIAL SETUP (Install Apache, PHP, MySQL)${RESET}"
     echo -e "${CYAN}2) 🌐 SETUP DOMAIN (Link Domain to a Project)${RESET}"
@@ -28,9 +28,10 @@ while true; do
     echo -e "${CYAN}9) 🛡️  ADD SECURITY (Auto Update & Firewall)${RESET}"
     echo -e "${YELLOW}10) ⏰ SET AUTO NIGHTLY BACKUP (11:00 PM)${RESET}"
     echo -e "${GREEN}11) 🔒 AUTO SSL (HTTPS) SETUP (Certbot)${RESET}"
+    echo -e "${MAGENTA}12) 🔑 CHANGE WEB ADMIN PASSWORD (Live)${RESET}"
     echo -e "${RED}0) ❌ EXIT${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
-    read -p "Select an option [0-11]: " choice
+    read -p "Select an option [0-12]: " choice
 
     case $choice in
         1)
@@ -84,29 +85,22 @@ EOF
             
         3)
             echo -e "\n${YELLOW}[*] SERVER HEALTH CHECK (Live Status)${RESET}"
-            
-            # Check Apache
             if systemctl is-active --quiet apache2; then
                 echo -e "🌐 Web Server (Apache) : ${GREEN}🟢 RUNNING${RESET}"
             else
                 echo -e "🌐 Web Server (Apache) : ${RED}🔴 STOPPED${RESET}"
             fi
-            
-            # Check MySQL
             if systemctl is-active --quiet mysql; then
                 echo -e "🗄️  Database (MySQL)  : ${GREEN}🟢 RUNNING${RESET}"
             else
                 echo -e "🗄️  Database (MySQL)  : ${RED}🔴 STOPPED${RESET}"
             fi
-            
-            # Check Firewall
             UFW_STATUS=$(sudo ufw status | grep -w "Status")
             if [[ "$UFW_STATUS" == *"active"* ]]; then
                 echo -e "🛡️  Firewall (UFW)    : ${GREEN}🟢 ACTIVE${RESET}"
             else
                 echo -e "🛡️  Firewall (UFW)    : ${RED}🔴 INACTIVE${RESET}"
             fi
-            
             echo -e "\n${YELLOW}System Uptime:${RESET}"
             uptime -p
             read -p "Press Enter to return..."
@@ -256,18 +250,32 @@ EOF
             echo -e "\n${YELLOW}[*] AUTO SSL (HTTPS) SETUP${RESET}"
             read -p "Enter Domain Name (e.g. example.com): " SSL_DOMAIN
             read -p "Enter your Email (for SSL notice): " SSL_EMAIL
-            
             echo -e "${GREEN}[*] Installing Certbot (if not installed)...${RESET}"
             sudo apt install certbot python3-certbot-apache -y >/dev/null 2>&1
-            
             echo -e "${GREEN}[*] Applying SSL Certificate... Please wait!${RESET}"
-            # This command bypasses all the Y/N questions
             sudo certbot --apache -d $SSL_DOMAIN -d www.$SSL_DOMAIN --non-interactive --agree-tos -m $SSL_EMAIL --redirect
-            
             if [ $? -eq 0 ]; then
                 echo -e "${GREEN}[+] SSL Installed Successfully! Your site is now secure (HTTPS).${RESET}"
             else
                 echo -e "${RED}[-] SSL Setup Failed! Check if your domain is pointing to this server's IP.${RESET}"
+            fi
+            read -p "Press Enter to return..."
+            ;;
+
+        12)
+            echo -e "\n${MAGENTA}[*] CHANGE WEB ADMIN PASSWORD${RESET}"
+            echo -e "Current Database Users:"
+            sudo mysql -e "USE rainbow_school; SELECT id, name, mobile, role FROM users;"
+            echo "-----------------------------------"
+            read -p "Enter User Mobile/Login ID (e.g. admin or 7908516697): " TARGET_ID
+            read -p "Enter New Password: " NEW_PASS
+            
+            sudo mysql -e "USE rainbow_school; UPDATE users SET password='$NEW_PASS' WHERE mobile='$TARGET_ID';"
+            
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}[+] Password successfully updated for '$TARGET_ID'!${RESET}"
+            else
+                echo -e "${RED}[-] Error: Could not update password.${RESET}"
             fi
             read -p "Press Enter to return..."
             ;;
