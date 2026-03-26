@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # ╔══════════════════════════════════════════════════════════════╗
-# ║         SERVER MANAGEMENT MASTER TOOL V3.5                  ║
+# ║         SERVER MANAGEMENT MASTER TOOL V3.6                  ║
 # ║                  MADE BY PRODIP                             ║
 # ╚══════════════════════════════════════════════════════════════╝
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  COLOR PALETTE
+#  COLOR PALETTE & DYNAMIC PATHS (DUAL MODE)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RESET="\e[0m"
 BOLD="\e[1m"
@@ -20,6 +20,10 @@ BLUE="\e[94m"
 MAGENTA="\e[95m"
 CYAN="\e[96m"
 WHITE="\e[97m"
+
+# Auto Detect Environment (VPS Root vs Local User)
+USER_HOME=$HOME
+TEMP_DIR="/tmp"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  HELPER FUNCTIONS
@@ -107,7 +111,7 @@ show_menu() {
     print_gap
     echo -e "${BOLD}${CYAN}    ╔═════════════════════════════════════════════════════════╗${RESET}"
     echo -e "${BOLD}${CYAN}    ║${RESET}${BOLD}${YELLOW}            ✦  SERVER MANAGEMENT MASTER TOOL  ✦            ${RESET}${BOLD}${CYAN}║${RESET}"
-    echo -e "${BOLD}${CYAN}    ║${RESET}${DIM}${WHITE}                 V 3.5  ·   MADE BY PRODIP                ${RESET}${BOLD}${CYAN}║${RESET}"
+    echo -e "${BOLD}${CYAN}    ║${RESET}${DIM}${WHITE}                 V 3.6  ·   MADE BY PRODIP                ${RESET}${BOLD}${CYAN}║${RESET}"
     echo -e "${BOLD}${CYAN}    ╚═════════════════════════════════════════════════════════╝${RESET}"
     print_gap
 
@@ -130,7 +134,7 @@ show_menu() {
     section_header "DATABASE MIGRATION (1-CLICK)" "$YELLOW"
     print_gap
     menu_item "14" "📤" " Smart Export All DBs    " "$YELLOW"
-    echo -e "    ${DIM}${WHITE}        Auto-find & backup all databases for sharing${RESET}"
+    echo -e "    ${DIM}${WHITE}        Backup all DBs & Auto-Upload to Google Drive${RESET}"
     print_gap
     menu_item "15" "📥" " Smart Import All DBs    " "$MAGENTA"
     echo -e "    ${DIM}${WHITE}        Auto-create & import databases from .sql file${RESET}"
@@ -278,7 +282,6 @@ EOF
 
         # ══════════════════════════════════════════════════════════
         3)
-            # Health check code (Unchanged for brevity, same as your v3.5)
             clear
             print_gap
             echo -e "${BOLD}${BLUE}    ╔═══════════════════════════════════════════════════════╗${RESET}"
@@ -317,7 +320,6 @@ EOF
 
         # ══════════════════════════════════════════════════════════
         5)
-            # Install new project (Unchanged)
             clear
             print_gap
             echo -e "${BOLD}${GREEN}    ╔═══════════════════════════════════════════════════════╗${RESET}"
@@ -332,9 +334,10 @@ EOF
                 if [ -d "/var/www/html/$NEW_DIR" ]; then error_msg "Folder '$NEW_DIR' already exists!"; else
                     step_msg "Downloading & Extracting..."
                     sudo mkdir -p /var/www/html/$NEW_DIR
-                    sudo wget -qO /root/temp.zip "https://drive.google.com/uc?export=download&id=$FILE_ID"
-                    sudo unzip -o /root/temp.zip -d /var/www/html/$NEW_DIR
-                    sudo rm /root/temp.zip
+                    # Downloaded to TMP_DIR to avoid permission issues
+                    sudo wget -qO $TEMP_DIR/temp.zip "https://drive.google.com/uc?export=download&id=$FILE_ID"
+                    sudo unzip -o $TEMP_DIR/temp.zip -d /var/www/html/$NEW_DIR
+                    sudo rm $TEMP_DIR/temp.zip
                     if [ -f "/var/www/html/$NEW_DIR/database_backup.sql" ]; then sudo mysql < "/var/www/html/$NEW_DIR/database_backup.sql"; sudo rm "/var/www/html/$NEW_DIR/database_backup.sql"; info_msg "Database Restored Successfully!"; fi
                     sudo chown -R www-data:www-data /var/www/html/$NEW_DIR; sudo chmod -R 755 /var/www/html/$NEW_DIR
                     success_msg "Project Installed!  ➜  http://YOUR_IP/$NEW_DIR"
@@ -344,60 +347,68 @@ EOF
             ;;
 
         # ══════════════════════════════════════════════════════════
-        # 6, 7, 8, 9, 10, 11, 12, 13 (Skipping details here in prompt response but assume standard code, same as above to save space. Wait, I will provide full code for safety).
-        # Let's keep it complete so you don't get errors.
         6)
             clear; print_gap; echo -e "${BOLD}${YELLOW}    ╔═══════════════════════════════════════════════════════╗${RESET}"; echo -e "${BOLD}${YELLOW}    ║          💾  BACKUP PROJECT TO GDRIVE                 ║${RESET}"; echo -e "${BOLD}${YELLOW}    ╚═══════════════════════════════════════════════════════╝${RESET}"; print_gap
             ls -d /var/www/html/*/ 2>/dev/null | awk -F/ '{print "    \033[93m  ▸  \033[0m\033[97m" $(NF-1) "\033[0m"}'
             prompt_input "Enter project folder name to backup" FOLDER_NAME
             if [ -d "/var/www/html/$FOLDER_NAME" ]; then
                 DATE=$(date +"%d-%b-%Y_%I-%M-%p"); BACKUP_NAME="${FOLDER_NAME}_Backup_$DATE.zip"
+                # Save to TMP to ensure dynamic behavior
                 sudo mysqldump --all-databases > /var/www/html/$FOLDER_NAME/database_backup.sql
-                cd /var/www/html/$FOLDER_NAME && sudo zip -r -q /root/$BACKUP_NAME .
-                rclone copy /root/$BACKUP_NAME gdrive:Server_Backups/
-                sudo rm /var/www/html/$FOLDER_NAME/database_backup.sql /root/$BACKUP_NAME
+                cd /var/www/html/$FOLDER_NAME && sudo zip -r -q $TEMP_DIR/$BACKUP_NAME .
+                sudo chmod 777 $TEMP_DIR/$BACKUP_NAME # Rclone needs read access
+                rclone copy $TEMP_DIR/$BACKUP_NAME gdrive:Server_Backups/
+                sudo rm /var/www/html/$FOLDER_NAME/database_backup.sql $TEMP_DIR/$BACKUP_NAME
                 success_msg "Backup Complete! Check your Google Drive."
             else error_msg "Not found!"; fi; press_enter;;
+            
         7)
             clear; prompt_input "Enter project folder name to DELETE" DEL_DIR
             if [ -d "/var/www/html/$DEL_DIR" ]; then echo -ne "    ${BOLD}${RED}  ❯  Type 'YES' to confirm : ${RESET}"; read -r CONFIRM; if [ "$CONFIRM" == "YES" ]; then sudo rm -rf /var/www/html/$DEL_DIR; success_msg "Deleted."; fi; fi; press_enter;;
+            
         8)
             clear; if ! command -v rclone &> /dev/null; then sudo -v ; curl https://rclone.org/install.sh | sudo bash; else success_msg "Rclone installed!"; fi; rclone config; press_enter;;
+            
         9)
             clear; sudo apt-get update -y; sudo apt-get install fail2ban -y; sudo systemctl enable fail2ban; sudo systemctl start fail2ban; success_msg "Fail2Ban is active."; press_enter;;
+            
         10)
-            clear; cat << 'EOF' > /root/nightly_master_backup.sh
+            clear; cat << 'EOF' > "$USER_HOME/nightly_master_backup.sh"
 #!/bin/bash
 DATE=$(date +"%d-%b-%Y")
-sudo mysqldump --all-databases > /root/all_db_nightly.sql
+sudo mysqldump --all-databases > /tmp/all_db_nightly.sql
 for dir in /var/www/html/*/; do
     PROJ_NAME=$(basename "$dir"); ZIP_NAME="${PROJ_NAME}_AutoBackup_${DATE}.zip"
-    sudo cp /root/all_db_nightly.sql "$dir/database_backup.sql"
-    cd "$dir" && sudo zip -r -q /root/$ZIP_NAME .
+    sudo cp /tmp/all_db_nightly.sql "$dir/database_backup.sql"
+    cd "$dir" && sudo zip -r -q /tmp/$ZIP_NAME .
     sudo rm "$dir/database_backup.sql"
-    rclone copy /root/$ZIP_NAME gdrive:Server_Backups/Auto_Nightly/; rm /root/$ZIP_NAME
+    sudo chmod 777 /tmp/$ZIP_NAME
+    rclone copy /tmp/$ZIP_NAME gdrive:Server_Backups/Auto_Nightly/; sudo rm /tmp/$ZIP_NAME
 done
-rm /root/all_db_nightly.sql
+sudo rm /tmp/all_db_nightly.sql
 EOF
-            sudo chmod +x /root/nightly_master_backup.sh; CRON_JOB="0 23 * * * /root/nightly_master_backup.sh > /root/backup_log.txt 2>&1"; (crontab -l 2>/dev/null | grep -v "nightly_master_backup.sh"; echo "$CRON_JOB") | crontab -; success_msg "Set for 11:00 PM."; press_enter;;
+            sudo chmod +x "$USER_HOME/nightly_master_backup.sh"; CRON_JOB="0 23 * * * $USER_HOME/nightly_master_backup.sh > $USER_HOME/backup_log.txt 2>&1"; (crontab -l 2>/dev/null | grep -v "nightly_master_backup.sh"; echo "$CRON_JOB") | crontab -; success_msg "Set for 11:00 PM."; press_enter;;
+            
         11)
             clear; prompt_input "Enter Domain Name" SSL_DOMAIN; prompt_input "Enter Email" SSL_EMAIL; sudo apt install certbot python3-certbot-apache -y >/dev/null 2>&1; sudo certbot --apache -d $SSL_DOMAIN -d www.$SSL_DOMAIN --non-interactive --agree-tos -m $SSL_EMAIL --redirect; press_enter;;
+            
         12)
             clear; prompt_input "Enter User Mobile / Login ID" TARGET_ID; prompt_input "Enter New Password" NEW_PASS
             HASHED_PASS=$(php -r "echo password_hash('$NEW_PASS', PASSWORD_DEFAULT);")
             sudo mysql -e "USE rainbow_school; UPDATE users SET password='$HASHED_PASS' WHERE mobile='$TARGET_ID';"
             press_enter;;
+            
         13)
             clear; prompt_input "Enter folder name to explore" EXPLORE_DIR; if [ -d "/var/www/html/$EXPLORE_DIR" ]; then cd "/var/www/html/$EXPLORE_DIR"; echo "Exploring $(pwd)"; fi; press_enter;;
 
         # ══════════════════════════════════════════════════════════
-        # 🟢 NEW: SMART EXPORT ALL DATABASES (OPTION 14)
+        # 🟢 UPDATED: SMART EXPORT & GDRIVE AUTO-UPLOAD (OPTION 14)
         # ══════════════════════════════════════════════════════════
         14)
             clear
             print_gap
             echo -e "${BOLD}${YELLOW}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${YELLOW}    ║          📤  SMART EXPORT ALL DATABASES               ║${RESET}"
+            echo -e "${BOLD}${YELLOW}    ║          📤  SMART EXPORT & UPLOAD ALL DBs            ║${RESET}"
             echo -e "${BOLD}${YELLOW}    ╚═══════════════════════════════════════════════════════╝${RESET}"
             print_gap
 
@@ -406,7 +417,7 @@ EOF
             read -rs DB_PASS
             echo ""
             
-            # This line finds all databases except the default Linux system ones
+            # This line finds all custom databases
             DB_LIST=$(sudo mysql -u root -p"$DB_PASS" -e "SHOW DATABASES;" 2>/dev/null | awk '{print $1}' | grep -v -E "^(Database|information_schema|performance_schema|mysql|sys)$")
 
             if [ -z "$DB_LIST" ]; then
@@ -418,15 +429,34 @@ EOF
                 echo ""
                 print_gap
 
-                step_msg "Exporting... (this will include auto-create database code)"
+                step_msg "Exporting Databases..."
                 
-                # The --databases flag is the magic! It embeds "CREATE DATABASE" in the file
-                sudo mysqldump -u root -p"$DB_PASS" --databases $DB_LIST > /root/Master_Database_Backup.sql
+                # Saved dynamically in $USER_HOME instead of hardcoded /root/
+                FILE_NAME="Master_Database_Backup_$(date +%d-%b-%Y).sql"
+                FILE_PATH="$USER_HOME/$FILE_NAME"
+                
+                sudo mysqldump -u root -p"$DB_PASS" --databases $DB_LIST > "$FILE_PATH"
 
                 if [ $? -eq 0 ]; then
-                    success_msg "Export Successful!"
-                    echo -e "    ${DIM}${WHITE}  File saved at: ${BOLD}/root/Master_Database_Backup.sql${RESET}"
-                    warn_msg "Send this file to your friend. They just need to run Option 15!"
+                    sudo chmod 777 "$FILE_PATH" # To ensure Rclone/User can access it freely
+                    success_msg "Database Exported Locally!"
+                    echo -e "    ${DIM}${WHITE}  File saved locally at: ${BOLD}$FILE_PATH${RESET}"
+                    
+                    # 🟢 NEW: AUTO UPLOAD TO GDRIVE
+                    print_gap
+                    if command -v rclone &> /dev/null && rclone config show gdrive &> /dev/null; then
+                        step_msg "Uploading Database to Google Drive (Server_Backups/Databases/) ..."
+                        rclone copy "$FILE_PATH" gdrive:Server_Backups/Databases/
+                        
+                        if [ $? -eq 0 ]; then
+                            success_msg "Database successfully backed up to Google Drive! ☁️"
+                        else
+                            error_msg "Google Drive Upload Failed! Check your rclone connection."
+                        fi
+                    else
+                        warn_msg "Rclone (gdrive) not configured. Skipping Google Drive backup."
+                        info_msg "Use Option 8 to setup Rclone if you want auto Google Drive backups."
+                    fi
                 else
                     error_msg "Export Failed! Check password."
                 fi
@@ -435,7 +465,7 @@ EOF
             ;;
 
         # ══════════════════════════════════════════════════════════
-        # 🟢 NEW: SMART 1-CLICK IMPORT (OPTION 15)
+        # 🟢 SMART 1-CLICK IMPORT (OPTION 15)
         # ══════════════════════════════════════════════════════════
         15)
             clear
@@ -448,12 +478,12 @@ EOF
             section_header "AVAILABLE SQL FILES" "$CYAN"
             print_gap
             
-            # The find code has been updated to search deep everywhere (Level 5 depth)
-            mapfile -t sql_files < <(sudo find /root /var/www/html /home /tmp -maxdepth 5 -type f -iname "*.sql" 2>/dev/null)
+            # Searches User Home, /root, /tmp, and /var/www/html dynamically
+            mapfile -t sql_files < <(sudo find $USER_HOME /root /tmp /var/www/html -maxdepth 5 -type f -iname "*.sql" 2>/dev/null)
 
             if [ ${#sql_files[@]} -eq 0 ]; then
                 error_msg "No .sql files found anywhere on the server!"
-                warn_msg "Please upload the file to /root or /home using WinSCP first."
+                warn_msg "Please download the DB from Google Drive and place it in $USER_HOME first."
             else
                 for i in "${!sql_files[@]}"; do
                     printf "    ${MAGENTA}${BOLD}  %3d${RESET}  ${WHITE}%s${RESET}\n" "$((i+1))" "${sql_files[$i]}"
@@ -476,11 +506,9 @@ EOF
                     echo ""
                     print_gap
                     
-                    # Smart check: If file doesn't have CREATE DATABASE, we use the filename
                     HAS_CREATE=$(grep -i "CREATE DATABASE" "$TARGET_SQL")
                     
                     if [ -z "$HAS_CREATE" ]; then
-                        # File is a standard dump, we must create the DB manually based on filename
                         DB_NAME=$(basename "$TARGET_SQL" .sql | sed 's/[^a-zA-Z0-9_]//g')
                         step_msg "Auto-creating missing database: '$DB_NAME' ..."
                         sudo mysql -u root -p"$DB_PASS" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" 2>/dev/null
@@ -488,7 +516,6 @@ EOF
                         step_msg "Importing data into '$DB_NAME'..."
                         sudo mysql -u root -p"$DB_PASS" "$DB_NAME" < "$TARGET_SQL"
                     else
-                        # File has its own CREATE DATABASE instructions (like the one made by Option 14)
                         step_msg "Reading Master File... Automatically creating and importing all databases!"
                         sudo mysql -u root -p"$DB_PASS" < "$TARGET_SQL"
                     fi
