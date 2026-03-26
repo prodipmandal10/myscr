@@ -668,7 +668,7 @@ EOF
             print_gap
             
             # Find .sql files in /root and /var/www/html
-            mapfile -t sql_files < <(find /root /var/www/html -maxdepth 3 -type f -name "*.sql" 2>/dev/null)
+            mapfile -t sql_files < <(sudo find /root /var/www/html /home /tmp -maxdepth 5 -type f -iname "*.sql" 2>/dev/null)
 
             if [ ${#sql_files[@]} -eq 0 ]; then
                 error_msg "No .sql files found in /root or /var/www/html!"
