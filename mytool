@@ -14,7 +14,7 @@ while true; do
     echo -e "${YELLOW}=====================================================${RESET}"
     echo -e "${MAGENTA}                 👑 MADE BY PRODIP 👑                ${RESET}"
     echo -e "${YELLOW}=====================================================${RESET}"
-    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.2 🌟      ${RESET}"
+    echo -e "${GREEN}       🌟 SERVER MANAGEMENT MASTER TOOL V3.5 🌟      ${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
     echo -e "${CYAN}1) 🛠️  INITIAL SETUP (Install Apache, PHP, MySQL)${RESET}"
     echo -e "${CYAN}2) 🌐 SETUP DOMAIN (Link Domain to a Project)${RESET}"
@@ -28,10 +28,11 @@ while true; do
     echo -e "${CYAN}9) 🛡️  ADD SECURITY (Auto Update & Firewall)${RESET}"
     echo -e "${YELLOW}10) ⏰ SET AUTO NIGHTLY BACKUP (11:00 PM)${RESET}"
     echo -e "${GREEN}11) 🔒 AUTO SSL (HTTPS) SETUP (Certbot)${RESET}"
-    echo -e "${MAGENTA}12) 🔑 CHANGE WEB ADMIN PASSWORD (Live)${RESET}"
+    echo -e "${MAGENTA}12) 🔑 CHANGE WEB ADMIN PASSWORD (Live Hash)${RESET}"
+    echo -e "${CYAN}13) 🔍 EXPLORE & EDIT FILES (Easy File Manager)${RESET}"
     echo -e "${RED}0) ❌ EXIT${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
-    read -p "Select an option [0-12]: " choice
+    read -p "Select an option [0-13]: " choice
 
     case $choice in
         1)
@@ -270,12 +271,66 @@ EOF
             read -p "Enter User Mobile/Login ID (e.g. admin or 7908516697): " TARGET_ID
             read -p "Enter New Password: " NEW_PASS
             
-            sudo mysql -e "USE rainbow_school; UPDATE users SET password='$NEW_PASS' WHERE mobile='$TARGET_ID';"
+            # PHP দিয়ে পাসওয়ার্ডটিকে হ্যাশ (Hash) করা হচ্ছে
+            HASHED_PASS=$(php -r "echo password_hash('$NEW_PASS', PASSWORD_DEFAULT);")
+            
+            sudo mysql -e "USE rainbow_school; UPDATE users SET password='$HASHED_PASS' WHERE mobile='$TARGET_ID';"
             
             if [ $? -eq 0 ]; then
-                echo -e "${GREEN}[+] Password successfully updated for '$TARGET_ID'!${RESET}"
+                echo -e "${GREEN}[+] Password successfully updated and SECURELY HASHED for '$TARGET_ID'!${RESET}"
             else
                 echo -e "${RED}[-] Error: Could not update password.${RESET}"
+            fi
+            read -p "Press Enter to return..."
+            ;;
+
+        13)
+            echo -e "\n${YELLOW}[*] 🔍 EXPLORE & EDIT FILES (Easy File Manager)${RESET}"
+            
+            echo -e "\n${CYAN}🗄️  Your MySQL Databases:${RESET}"
+            sudo mysql -e "SHOW DATABASES;"
+            echo "-----------------------------------"
+            
+            echo -e "\n${CYAN}📂 Your Project Folders (/var/www/html/):${RESET}"
+            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null
+            echo "-----------------------------------"
+            
+            read -p "Enter the folder name you want to explore (e.g. rainbow): " EXPLORE_DIR
+            
+            if [ -d "/var/www/html/$EXPLORE_DIR" ]; then
+                cd "/var/www/html/$EXPLORE_DIR"
+                echo -e "\n${GREEN}[+] Successfully entered folder!${RESET}"
+                echo -e "📍 Current Path: ${YELLOW}$(pwd)${RESET}"
+                echo -e "\n${CYAN}📄 Listing all PHP files...${RESET}"
+                
+                # ফাইলগুলো খুঁজে অ্যারেতে (Array) রাখা হচ্ছে
+                mapfile -t php_files < <(find . -maxdepth 3 -type f -name "*.php" | sed 's|^\./||')
+                
+                if [ ${#php_files[@]} -eq 0 ]; then
+                    echo -e "${RED}[-] No PHP files found in this project.${RESET}"
+                else
+                    echo "-----------------------------------"
+                    for i in "${!php_files[@]}"; do
+                        echo -e "${MAGENTA}$((i+1)))${RESET} ${php_files[$i]}"
+                    done
+                    echo "-----------------------------------"
+                    
+                    read -p "Enter the SL No of the file to Edit/View (or 0 to cancel): " FILE_NUM
+                    
+                    if [[ "$FILE_NUM" =~ ^[0-9]+$ ]] && [ "$FILE_NUM" -gt 0 ] && [ "$FILE_NUM" -le "${#php_files[@]}" ]; then
+                        FILE_INDEX=$((FILE_NUM-1))
+                        TARGET_FILE="${php_files[$FILE_INDEX]}"
+                        
+                        echo -e "${GREEN}[*] Opening '$TARGET_FILE' in Nano Editor...${RESET}"
+                        sleep 1
+                        sudo nano "$TARGET_FILE"
+                        echo -e "${GREEN}[+] Saved and Closed '$TARGET_FILE'!${RESET}"
+                    else
+                        echo -e "${YELLOW}[*] Action cancelled.${RESET}"
+                    fi
+                fi
+            else
+                echo -e "${RED}[-] Folder '$EXPLORE_DIR' not found!${RESET}"
             fi
             read -p "Press Enter to return..."
             ;;
