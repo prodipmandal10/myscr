@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # ╔══════════════════════════════════════════════════════════════╗
-# ║          SERVER MANAGEMENT MASTER TOOL V3.5                 ║
-# ║                    MADE BY PRODIP                           ║
+# ║         SERVER MANAGEMENT MASTER TOOL V3.5                  ║
+# ║                  MADE BY PRODIP                             ║
 # ╚══════════════════════════════════════════════════════════════╝
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -110,8 +110,8 @@ show_menu() {
     print_gap
     print_gap
     echo -e "${BOLD}${CYAN}    ╔═════════════════════════════════════════════════════════╗${RESET}"
-    echo -e "${BOLD}${CYAN}    ║${RESET}${BOLD}${YELLOW}           ✦  SERVER MANAGEMENT MASTER TOOL  ✦           ${RESET}${BOLD}${CYAN}║${RESET}"
-    echo -e "${BOLD}${CYAN}    ║${RESET}${DIM}${WHITE}                 V 3.5   ·   MADE BY PRODIP               ${RESET}${BOLD}${CYAN}║${RESET}"
+    echo -e "${BOLD}${CYAN}    ║${RESET}${BOLD}${YELLOW}            ✦  SERVER MANAGEMENT MASTER TOOL  ✦            ${RESET}${BOLD}${CYAN}║${RESET}"
+    echo -e "${BOLD}${CYAN}    ║${RESET}${DIM}${WHITE}                 V 3.5  ·   MADE BY PRODIP                ${RESET}${BOLD}${CYAN}║${RESET}"
     echo -e "${BOLD}${CYAN}    ╚═════════════════════════════════════════════════════════╝${RESET}"
     print_gap
 
@@ -126,6 +126,9 @@ show_menu() {
     print_gap
     menu_item "11" "🔒" " Auto SSL (HTTPS)        " "$GREEN"
     echo -e "    ${DIM}${WHITE}        Install Certbot · Secure with HTTPS${RESET}"
+    print_gap
+    menu_item "14" "📥" " 1-Click DB Import       " "$MAGENTA"
+    echo -e "    ${DIM}${WHITE}        Auto-find .sql file & import database${RESET}"
     print_gap
 
     draw_line
@@ -184,7 +187,7 @@ show_menu() {
     draw_double_line
 
     print_gap
-    echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Select an option ${DIM}[0-13]${RESET}${BOLD}${WHITE} : ${RESET}"
+    echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Select an option ${DIM}[0-14]${RESET}${BOLD}${WHITE} : ${RESET}"
     read -r choice
 }
 
@@ -202,7 +205,7 @@ while true; do
             clear
             print_gap
             echo -e "${BOLD}${GREEN}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${GREEN}    ║          🛠   INITIAL SERVER SETUP                   ║${RESET}"
+            echo -e "${BOLD}${GREEN}    ║          🛠   INITIAL SERVER SETUP                    ║${RESET}"
             echo -e "${BOLD}${GREEN}    ╚═══════════════════════════════════════════════════════╝${RESET}"
             print_gap
 
@@ -230,7 +233,7 @@ while true; do
             clear
             print_gap
             echo -e "${BOLD}${GREEN}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${GREEN}    ║          🌐  SETUP DOMAIN                            ║${RESET}"
+            echo -e "${BOLD}${GREEN}    ║          🌐  SETUP DOMAIN                             ║${RESET}"
             echo -e "${BOLD}${GREEN}    ╚═══════════════════════════════════════════════════════╝${RESET}"
             print_gap
 
@@ -273,7 +276,7 @@ EOF
             clear
             print_gap
             echo -e "${BOLD}${BLUE}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${BLUE}    ║          📊  SERVER HEALTH CHECK                     ║${RESET}"
+            echo -e "${BOLD}${BLUE}    ║          📊  SERVER HEALTH CHECK                      ║${RESET}"
             echo -e "${BOLD}${BLUE}    ╚═══════════════════════════════════════════════════════╝${RESET}"
             print_gap
 
@@ -318,7 +321,7 @@ EOF
             clear
             print_gap
             echo -e "${BOLD}${CYAN}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${CYAN}    ║          📂  ALL PROJECTS                            ║${RESET}"
+            echo -e "${BOLD}${CYAN}    ║          📂  ALL PROJECTS                             ║${RESET}"
             echo -e "${BOLD}${CYAN}    ╚═══════════════════════════════════════════════════════╝${RESET}"
             print_gap
 
@@ -335,7 +338,7 @@ EOF
             clear
             print_gap
             echo -e "${BOLD}${GREEN}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${GREEN}    ║          🚀  INSTALL NEW PROJECT                     ║${RESET}"
+            echo -e "${BOLD}${GREEN}    ║          🚀  INSTALL NEW PROJECT                      ║${RESET}"
             echo -e "${BOLD}${GREEN}    ╚═══════════════════════════════════════════════════════╝${RESET}"
             print_gap
 
@@ -382,7 +385,7 @@ EOF
             clear
             print_gap
             echo -e "${BOLD}${YELLOW}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${YELLOW}    ║          💾  BACKUP PROJECT TO GDRIVE                ║${RESET}"
+            echo -e "${BOLD}${YELLOW}    ║          💾  BACKUP PROJECT TO GDRIVE                 ║${RESET}"
             echo -e "${BOLD}${YELLOW}    ╚═══════════════════════════════════════════════════════╝${RESET}"
             print_gap
 
@@ -420,7 +423,7 @@ EOF
             clear
             print_gap
             echo -e "${BOLD}${RED}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${RED}    ║          🗑   DELETE A PROJECT                       ║${RESET}"
+            echo -e "${BOLD}${RED}    ║          🗑   DELETE A PROJECT                        ║${RESET}"
             echo -e "${BOLD}${RED}    ╚═══════════════════════════════════════════════════════╝${RESET}"
             print_gap
 
@@ -434,7 +437,7 @@ EOF
             if [ -d "/var/www/html/$DEL_DIR" ]; then
                 print_gap
                 echo -e "    ${BOLD}${RED}    ⚠  WARNING: This action is PERMANENT and cannot be undone!${RESET}"
-                echo -e "    ${RED}       You are about to delete:  ${BOLD}${WHITE}$DEL_DIR${RESET}"
+                echo -e "    ${RED}        You are about to delete:  ${BOLD}${WHITE}$DEL_DIR${RESET}"
                 print_gap
                 echo -ne "    ${BOLD}${RED}  ❯  Type ${WHITE}'YES'${RED} to confirm : ${RESET}"
                 read -r CONFIRM
@@ -456,7 +459,7 @@ EOF
             clear
             print_gap
             echo -e "${BOLD}${YELLOW}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${YELLOW}    ║          ⚙   INSTALL & SETUP RCLONE                 ║${RESET}"
+            echo -e "${BOLD}${YELLOW}    ║          ⚙   INSTALL & SETUP RCLONE                  ║${RESET}"
             echo -e "${BOLD}${YELLOW}    ╚═══════════════════════════════════════════════════════╝${RESET}"
             print_gap
 
@@ -480,7 +483,7 @@ EOF
             clear
             print_gap
             echo -e "${BOLD}${BLUE}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${BLUE}    ║          🛡   ADD SECURITY                           ║${RESET}"
+            echo -e "${BOLD}${BLUE}    ║          🛡   ADD SECURITY                            ║${RESET}"
             echo -e "${BOLD}${BLUE}    ╚═══════════════════════════════════════════════════════╝${RESET}"
             print_gap
 
@@ -653,13 +656,70 @@ EOF
             ;;
 
         # ══════════════════════════════════════════════════════════
+        14)
+            clear
+            print_gap
+            echo -e "${BOLD}${MAGENTA}    ╔═══════════════════════════════════════════════════════╗${RESET}"
+            echo -e "${BOLD}${MAGENTA}    ║          📥  1-CLICK DATABASE IMPORT                  ║${RESET}"
+            echo -e "${BOLD}${MAGENTA}    ╚═══════════════════════════════════════════════════════╝${RESET}"
+            print_gap
+
+            section_header "AVAILABLE SQL FILES" "$CYAN"
+            print_gap
+            
+            # Find .sql files in /root and /var/www/html
+            mapfile -t sql_files < <(find /root /var/www/html -maxdepth 3 -type f -name "*.sql" 2>/dev/null)
+
+            if [ ${#sql_files[@]} -eq 0 ]; then
+                error_msg "No .sql files found in /root or /var/www/html!"
+            else
+                for i in "${!sql_files[@]}"; do
+                    printf "    ${MAGENTA}${BOLD}  %3d${RESET}  ${WHITE}%s${RESET}\n" "$((i+1))" "${sql_files[$i]}"
+                done
+                print_gap
+                draw_line
+
+                echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Select SQL file to import ${DIM}(0 to cancel)${RESET}${BOLD}${WHITE} : ${RESET}"
+                read -r FILE_NUM
+
+                if [[ "$FILE_NUM" =~ ^[0-9]+$ ]] && [ "$FILE_NUM" -gt 0 ] && [ "$FILE_NUM" -le "${#sql_files[@]}" ]; then
+                    FILE_INDEX=$((FILE_NUM-1))
+                    TARGET_SQL="${sql_files[$FILE_INDEX]}"
+
+                    print_gap
+                    step_msg "Selected File: $TARGET_SQL"
+                    
+                    # Ask for password (hidden input)
+                    echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Enter MySQL 'root' Password : ${RESET}"
+                    read -rs DB_PASS
+                    echo ""
+                    
+                    print_gap
+                    step_msg "Importing Database Data... Please wait."
+
+                    # Execute the import
+                    sudo mysql -u root -p"$DB_PASS" < "$TARGET_SQL"
+
+                    if [ $? -eq 0 ]; then
+                        success_msg "Database Imported Successfully!"
+                    else
+                        error_msg "Import Failed! Check password or SQL file format."
+                    fi
+                else
+                    warn_msg "Action Cancelled."
+                fi
+            fi
+            press_enter
+            ;;
+
+        # ══════════════════════════════════════════════════════════
         0)
             clear
             print_gap
             print_gap
             echo -e "${BOLD}${CYAN}    ╔═════════════════════════════════════════════════════════╗${RESET}"
             echo -e "${BOLD}${CYAN}    ║                                                         ║${RESET}"
-            echo -e "${BOLD}${CYAN}    ║${RESET}   ${GREEN}${BOLD}  ✔  Exiting Master Tool. Server is safe!           ${RESET}${BOLD}${CYAN}║${RESET}"
+            echo -e "${BOLD}${CYAN}    ║${RESET}   ${GREEN}${BOLD}  ✔  Exiting Master Tool. Server is safe!            ${RESET}${BOLD}${CYAN}║${RESET}"
             echo -e "${BOLD}${CYAN}    ║${RESET}   ${DIM}${WHITE}     Have a great day, Prodip Bandhu!               ${RESET}${BOLD}${CYAN}║${RESET}"
             echo -e "${BOLD}${CYAN}    ║                                                         ║${RESET}"
             echo -e "${BOLD}${CYAN}    ╚═════════════════════════════════════════════════════════╝${RESET}"
@@ -672,7 +732,7 @@ EOF
         *)
             clear
             print_gap
-            error_msg "Invalid option '$choice'! Please select between 0 and 13."
+            error_msg "Invalid option '$choice'! Please select between 0 and 14."
             sleep 1
             ;;
     esac
