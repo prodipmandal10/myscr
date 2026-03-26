@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ╔══════════════════════════════════════════════════════════════╗
-# ║         SERVER MANAGEMENT MASTER TOOL V3.6                  ║
+# ║         SERVER MANAGEMENT MASTER TOOL V3.7                  ║
 # ║                  MADE BY PRODIP                             ║
 # ╚══════════════════════════════════════════════════════════════╝
 
@@ -111,7 +111,7 @@ show_menu() {
     print_gap
     echo -e "${BOLD}${CYAN}    ╔═════════════════════════════════════════════════════════╗${RESET}"
     echo -e "${BOLD}${CYAN}    ║${RESET}${BOLD}${YELLOW}            ✦  SERVER MANAGEMENT MASTER TOOL  ✦            ${RESET}${BOLD}${CYAN}║${RESET}"
-    echo -e "${BOLD}${CYAN}    ║${RESET}${DIM}${WHITE}                 V 3.6  ·   MADE BY PRODIP                ${RESET}${BOLD}${CYAN}║${RESET}"
+    echo -e "${BOLD}${CYAN}    ║${RESET}${DIM}${WHITE}                 V 3.7  ·   MADE BY PRODIP                ${RESET}${BOLD}${CYAN}║${RESET}"
     echo -e "${BOLD}${CYAN}    ╚═════════════════════════════════════════════════════════╝${RESET}"
     print_gap
 
@@ -137,7 +137,7 @@ show_menu() {
     echo -e "    ${DIM}${WHITE}        Backup all DBs & Auto-Upload to Google Drive${RESET}"
     print_gap
     menu_item "15" "📥" " Smart Import All DBs    " "$MAGENTA"
-    echo -e "    ${DIM}${WHITE}        Auto-create & import databases from .sql file${RESET}"
+    echo -e "    ${DIM}${WHITE}        Auto-download from Drive & Import Database${RESET}"
     print_gap
 
     draw_line
@@ -334,7 +334,6 @@ EOF
                 if [ -d "/var/www/html/$NEW_DIR" ]; then error_msg "Folder '$NEW_DIR' already exists!"; else
                     step_msg "Downloading & Extracting..."
                     sudo mkdir -p /var/www/html/$NEW_DIR
-                    # Downloaded to TMP_DIR to avoid permission issues
                     sudo wget -qO $TEMP_DIR/temp.zip "https://drive.google.com/uc?export=download&id=$FILE_ID"
                     sudo unzip -o $TEMP_DIR/temp.zip -d /var/www/html/$NEW_DIR
                     sudo rm $TEMP_DIR/temp.zip
@@ -353,10 +352,9 @@ EOF
             prompt_input "Enter project folder name to backup" FOLDER_NAME
             if [ -d "/var/www/html/$FOLDER_NAME" ]; then
                 DATE=$(date +"%d-%b-%Y_%I-%M-%p"); BACKUP_NAME="${FOLDER_NAME}_Backup_$DATE.zip"
-                # Save to TMP to ensure dynamic behavior
                 sudo mysqldump --all-databases > /var/www/html/$FOLDER_NAME/database_backup.sql
                 cd /var/www/html/$FOLDER_NAME && sudo zip -r -q $TEMP_DIR/$BACKUP_NAME .
-                sudo chmod 777 $TEMP_DIR/$BACKUP_NAME # Rclone needs read access
+                sudo chmod 777 $TEMP_DIR/$BACKUP_NAME
                 rclone copy $TEMP_DIR/$BACKUP_NAME gdrive:Server_Backups/
                 sudo rm /var/www/html/$FOLDER_NAME/database_backup.sql $TEMP_DIR/$BACKUP_NAME
                 success_msg "Backup Complete! Check your Google Drive."
@@ -402,7 +400,7 @@ EOF
             clear; prompt_input "Enter folder name to explore" EXPLORE_DIR; if [ -d "/var/www/html/$EXPLORE_DIR" ]; then cd "/var/www/html/$EXPLORE_DIR"; echo "Exploring $(pwd)"; fi; press_enter;;
 
         # ══════════════════════════════════════════════════════════
-        # 🟢 UPDATED: SMART EXPORT & GDRIVE AUTO-UPLOAD (OPTION 14)
+        # 🟢 SMART EXPORT & GDRIVE AUTO-UPLOAD (OPTION 14)
         # ══════════════════════════════════════════════════════════
         14)
             clear
@@ -417,7 +415,6 @@ EOF
             read -rs DB_PASS
             echo ""
             
-            # This line finds all custom databases
             DB_LIST=$(sudo mysql -u root -p"$DB_PASS" -e "SHOW DATABASES;" 2>/dev/null | awk '{print $1}' | grep -v -E "^(Database|information_schema|performance_schema|mysql|sys)$")
 
             if [ -z "$DB_LIST" ]; then
@@ -430,19 +427,16 @@ EOF
                 print_gap
 
                 step_msg "Exporting Databases..."
-                
-                # Saved dynamically in $USER_HOME instead of hardcoded /root/
                 FILE_NAME="Master_Database_Backup_$(date +%d-%b-%Y).sql"
                 FILE_PATH="$USER_HOME/$FILE_NAME"
                 
                 sudo mysqldump -u root -p"$DB_PASS" --databases $DB_LIST > "$FILE_PATH"
 
                 if [ $? -eq 0 ]; then
-                    sudo chmod 777 "$FILE_PATH" # To ensure Rclone/User can access it freely
+                    sudo chmod 777 "$FILE_PATH"
                     success_msg "Database Exported Locally!"
                     echo -e "    ${DIM}${WHITE}  File saved locally at: ${BOLD}$FILE_PATH${RESET}"
                     
-                    # 🟢 NEW: AUTO UPLOAD TO GDRIVE
                     print_gap
                     if command -v rclone &> /dev/null && rclone config show gdrive &> /dev/null; then
                         step_msg "Uploading Database to Google Drive (Server_Backups/Databases/) ..."
@@ -465,7 +459,7 @@ EOF
             ;;
 
         # ══════════════════════════════════════════════════════════
-        # 🟢 SMART 1-CLICK IMPORT (OPTION 15)
+        # 🟢 SMART 1-CLICK IMPORT FROM DRIVE LINK (OPTION 15)
         # ══════════════════════════════════════════════════════════
         15)
             clear
@@ -475,59 +469,96 @@ EOF
             echo -e "${BOLD}${MAGENTA}    ╚═══════════════════════════════════════════════════════╝${RESET}"
             print_gap
 
-            section_header "AVAILABLE SQL FILES" "$CYAN"
-            print_gap
+            TARGET_SQL=""
             
-            # Searches User Home, /root, /tmp, and /var/www/html dynamically
-            mapfile -t sql_files < <(sudo find $USER_HOME /root /tmp /var/www/html -maxdepth 5 -type f -iname "*.sql" 2>/dev/null)
+            # Ask for Google Drive Link first
+            print_gap
+            echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Paste Google Drive File Link ${DIM}(Leave blank & press ENTER for local file)${RESET}${BOLD}${WHITE} : ${RESET}"
+            read -r G_LINK
 
-            if [ ${#sql_files[@]} -eq 0 ]; then
-                error_msg "No .sql files found anywhere on the server!"
-                warn_msg "Please download the DB from Google Drive and place it in $USER_HOME first."
-            else
-                for i in "${!sql_files[@]}"; do
-                    printf "    ${MAGENTA}${BOLD}  %3d${RESET}  ${WHITE}%s${RESET}\n" "$((i+1))" "${sql_files[$i]}"
-                done
-                print_gap
-                draw_line
-
-                echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Select SQL file to import ${DIM}(0 to cancel)${RESET}${BOLD}${WHITE} : ${RESET}"
-                read -r FILE_NUM
-
-                if [[ "$FILE_NUM" =~ ^[0-9]+$ ]] && [ "$FILE_NUM" -gt 0 ] && [ "$FILE_NUM" -le "${#sql_files[@]}" ]; then
-                    FILE_INDEX=$((FILE_NUM-1))
-                    TARGET_SQL="${sql_files[$FILE_INDEX]}"
-
-                    print_gap
-                    step_msg "Selected File: $TARGET_SQL"
-                    
-                    echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Enter MySQL 'root' Password : ${RESET}"
-                    read -rs DB_PASS
-                    echo ""
-                    print_gap
-                    
-                    HAS_CREATE=$(grep -i "CREATE DATABASE" "$TARGET_SQL")
-                    
-                    if [ -z "$HAS_CREATE" ]; then
-                        DB_NAME=$(basename "$TARGET_SQL" .sql | sed 's/[^a-zA-Z0-9_]//g')
-                        step_msg "Auto-creating missing database: '$DB_NAME' ..."
-                        sudo mysql -u root -p"$DB_PASS" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" 2>/dev/null
-                        
-                        step_msg "Importing data into '$DB_NAME'..."
-                        sudo mysql -u root -p"$DB_PASS" "$DB_NAME" < "$TARGET_SQL"
-                    else
-                        step_msg "Reading Master File... Automatically creating and importing all databases!"
-                        sudo mysql -u root -p"$DB_PASS" < "$TARGET_SQL"
-                    fi
-
-                    if [ $? -eq 0 ]; then
-                        success_msg "All Databases Imported Successfully!"
-                    else
-                        error_msg "Import Failed! Check password or SQL file format."
-                    fi
+            if [ -n "$G_LINK" ]; then
+                # Extract File ID from the link
+                FILE_ID=$(echo "$G_LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
+                
+                if [ -z "$FILE_ID" ] || [ "$FILE_ID" == "$G_LINK" ]; then
+                    error_msg "Invalid Google Drive Link format!"
                 else
-                    warn_msg "Action Cancelled."
+                    TARGET_SQL="/tmp/Smart_Imported_DB.sql"
+                    step_msg "Downloading Database from Google Drive..."
+                    
+                    sudo wget -qO "$TARGET_SQL" "https://drive.google.com/uc?export=download&id=$FILE_ID"
+                    
+                    if [ -s "$TARGET_SQL" ]; then
+                        success_msg "Database File Downloaded Successfully!"
+                    else
+                        error_msg "Failed to download! Make sure the Drive link is 'Anyone with the link can view'."
+                        TARGET_SQL=""
+                    fi
                 fi
+            else
+                # If no link provided, scan local files
+                section_header "AVAILABLE LOCAL SQL FILES" "$CYAN"
+                print_gap
+                mapfile -t sql_files < <(sudo find $USER_HOME /root /tmp /var/www/html -maxdepth 5 -type f -iname "*.sql" 2>/dev/null)
+
+                if [ ${#sql_files[@]} -eq 0 ]; then
+                    error_msg "No .sql files found on the server!"
+                else
+                    for i in "${!sql_files[@]}"; do
+                        printf "    ${MAGENTA}${BOLD}  %3d${RESET}  ${WHITE}%s${RESET}\n" "$((i+1))" "${sql_files[$i]}"
+                    done
+                    print_gap
+                    draw_line
+
+                    echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Select SQL file to import ${DIM}(0 to cancel)${RESET}${BOLD}${WHITE} : ${RESET}"
+                    read -r FILE_NUM
+
+                    if [[ "$FILE_NUM" =~ ^[0-9]+$ ]] && [ "$FILE_NUM" -gt 0 ] && [ "$FILE_NUM" -le "${#sql_files[@]}" ]; then
+                        FILE_INDEX=$((FILE_NUM-1))
+                        TARGET_SQL="${sql_files[$FILE_INDEX]}"
+                    fi
+                fi
+            fi
+
+            # Proceed to Import if TARGET_SQL is set and exists
+            if [ -n "$TARGET_SQL" ] && [ -f "$TARGET_SQL" ]; then
+                print_gap
+                step_msg "Target Database File: $TARGET_SQL"
+                
+                echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Enter MySQL 'root' Password : ${RESET}"
+                read -rs DB_PASS
+                echo ""
+                print_gap
+                
+                # Check if file has "CREATE DATABASE" instructions
+                HAS_CREATE=$(grep -i "CREATE DATABASE" "$TARGET_SQL")
+                
+                if [ -z "$HAS_CREATE" ]; then
+                    # Standard backup without CREATE DATABASE commands
+                    DB_NAME=$(basename "$TARGET_SQL" .sql | sed 's/[^a-zA-Z0-9_]//g')
+                    step_msg "Auto-creating missing database: '$DB_NAME' ..."
+                    sudo mysql -u root -p"$DB_PASS" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" 2>/dev/null
+                    
+                    step_msg "Importing data into '$DB_NAME'..."
+                    sudo mysql -u root -p"$DB_PASS" "$DB_NAME" < "$TARGET_SQL"
+                else
+                    # Master backup created by Option 14
+                    step_msg "Reading Master File... Automatically creating and importing all databases!"
+                    sudo mysql -u root -p"$DB_PASS" < "$TARGET_SQL"
+                fi
+
+                if [ $? -eq 0 ]; then
+                    success_msg "All Databases Imported Successfully! 🎉"
+                else
+                    error_msg "Import Failed! Check password or SQL file format."
+                fi
+                
+                # Cleanup temp file if downloaded from drive
+                if [ "$TARGET_SQL" == "/tmp/Smart_Imported_DB.sql" ]; then
+                    sudo rm -f "$TARGET_SQL"
+                fi
+            else
+                warn_msg "Action Cancelled or File Not Found."
             fi
             press_enter
             ;;
