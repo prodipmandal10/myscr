@@ -14,7 +14,7 @@ while true; do
     echo -e "${YELLOW}=====================================================${RESET}"
     echo -e "${MAGENTA}                 👑 MADE BY PRODIP 👑                ${RESET}"
     echo -e "${YELLOW}=====================================================${RESET}"
-    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.2 🌟      ${RESET}"
+    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.3 🌟      ${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
     echo -e "${CYAN}1) 🛠️  INITIAL SETUP (Install Apache, PHP, MySQL)${RESET}"
     echo -e "${CYAN}2) 🌐 SETUP DOMAIN (Link Domain to a Project)${RESET}"
@@ -29,9 +29,10 @@ while true; do
     echo -e "${YELLOW}10) ⏰ SET AUTO NIGHTLY BACKUP (11:00 PM)${RESET}"
     echo -e "${GREEN}11) 🔒 AUTO SSL (HTTPS) SETUP (Certbot)${RESET}"
     echo -e "${MAGENTA}12) 🔑 CHANGE WEB ADMIN PASSWORD (Live)${RESET}"
+    echo -e "${YELLOW}13) 📝 FILE EXPLORER & EDITOR (Live Code Edit)${RESET}"
     echo -e "${RED}0) ❌ EXIT${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
-    read -p "Select an option [0-12]: " choice
+    read -p "Select an option [0-13]: " choice
 
     case $choice in
         1)
@@ -278,6 +279,86 @@ EOF
                 echo -e "${RED}[-] Error: Could not update password.${RESET}"
             fi
             read -p "Press Enter to return..."
+            ;;
+
+        13)
+            echo -e "\n${YELLOW}[*] 📝 FILE EXPLORER & EDITOR${RESET}"
+            cd /var/www/html/ || continue
+            shopt -s nullglob
+            PROJ_ARRAY=(*/)
+            shopt -u nullglob
+            
+            if [ ${#PROJ_ARRAY[@]} -eq 0 ]; then
+                echo -e "${RED}[-] No projects found in /var/www/html/.${RESET}"
+                read -p "Press Enter to return..."
+                continue
+            fi
+            
+            echo -e "${YELLOW}Available Projects:${RESET}"
+            for i in "${!PROJ_ARRAY[@]}"; do
+                PROJ_NAME=$(basename "${PROJ_ARRAY[$i]}")
+                echo -e "${CYAN}$((i+1))) 📁 $PROJ_NAME${RESET}"
+            done
+            echo -e "${RED}0) 🔙 Go Back to Main Menu${RESET}"
+            
+            read -p "Select a project to explore [0-${#PROJ_ARRAY[@]}]: " P_CHOICE
+            
+            if [[ "$P_CHOICE" == "0" ]]; then
+                continue
+            elif [[ "$P_CHOICE" =~ ^[0-9]+$ ]] && [[ "$P_CHOICE" -gt 0 && "$P_CHOICE" -le "${#PROJ_ARRAY[@]}" ]]; then
+                SEL_PROJ=$(basename "${PROJ_ARRAY[$((P_CHOICE-1))]}")
+                EXPLORE_DIR="/var/www/html/$SEL_PROJ"
+                
+                while true; do
+                    clear
+                    echo -e "${YELLOW}=====================================================${RESET}"
+                    echo -e "${MAGENTA}   📂 EXPLORING: $EXPLORE_DIR ${RESET}"
+                    echo -e "${YELLOW}=====================================================${RESET}"
+                    
+                    cd "$EXPLORE_DIR" || break
+                    shopt -s dotglob nullglob
+                    ITEMS=(*)
+                    shopt -u dotglob nullglob
+                    
+                    if [ ${#ITEMS[@]} -eq 0 ]; then
+                        echo -e "${RED}[-] This directory is empty.${RESET}"
+                    else
+                        for j in "${!ITEMS[@]}"; do
+                            ITEM="${ITEMS[$j]}"
+                            if [ -d "$ITEM" ]; then
+                                echo -e "${BLUE}$((j+1))) 📁 $ITEM/ ${RESET}"
+                            else
+                                echo -e "${GREEN}$((j+1))) 📄 $ITEM ${RESET}"
+                            fi
+                        done
+                    fi
+                    echo -e "${BLUE}-----------------------------------------------------${RESET}"
+                    echo -e "${RED}0) 🔙 Go Back / Exit Explorer${RESET}"
+                    
+                    read -p "Select a file to edit or folder to open [0-${#ITEMS[@]}]: " F_CHOICE
+                    
+                    if [[ "$F_CHOICE" == "0" ]]; then
+                        if [[ "$EXPLORE_DIR" == "/var/www/html/$SEL_PROJ" ]]; then
+                            break # Exit explorer back to main menu
+                        else
+                            EXPLORE_DIR=$(dirname "$EXPLORE_DIR") # Go up one folder
+                        fi
+                    elif [[ "$F_CHOICE" =~ ^[0-9]+$ ]] && [[ "$F_CHOICE" -gt 0 && "$F_CHOICE" -le "${#ITEMS[@]}" ]]; then
+                        SEL_ITEM="${ITEMS[$((F_CHOICE-1))]}"
+                        if [ -d "$SEL_ITEM" ]; then
+                            EXPLORE_DIR="$EXPLORE_DIR/$SEL_ITEM" # Open folder
+                        elif [ -f "$SEL_ITEM" ]; then
+                            nano "$SEL_ITEM" # Edit file
+                        fi
+                    else
+                        echo -e "${RED}[-] Invalid Option!${RESET}"
+                        sleep 1
+                    fi
+                done
+            else
+                echo -e "${RED}[-] Invalid Option!${RESET}"
+                sleep 1
+            fi
             ;;
 
         0)
