@@ -307,6 +307,7 @@ EOF
             ;;
 
         15)
+           15)
             echo -e "\n${MAGENTA}[*] ☁️ AUTO DB RESTORE FROM GDRIVE (VPS/Local Fix)${RESET}"
             read -p "Enter GDrive Share Link of your SQL file: " LINK
             FILE_ID=$(echo "$LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
@@ -315,37 +316,26 @@ EOF
             else
                 read -p "Enter Target Database Name (e.g. rainbow_school): " TARGET_DB
                 echo -e "${GREEN}[*] Downloading SQL from GDrive...${RESET}"
-                # Download location changed to /tmp/ to fix Permission Denied Error
                 sudo wget -qO /tmp/downloaded_db.sql "https://drive.google.com/uc?export=download&id=$FILE_ID"
                 
-                echo -e "${YELLOW}[*] Applying MAGIC FIX: Removing 'DEFINER' errors...${RESET}"
-                sudo sed -i 's/DEFINER=[^*]*\*/\*/g' /tmp/downloaded_db.sql
-                sudo sed -i 's/DEFINER=[^ ]* //g' /tmp/downloaded_db.sql
+                echo -e "${YELLOW}[*] Applying SAFE MAGIC FIX: Removing 'DEFINER' errors...${RESET}"
+                # This SAFE version will ONLY target CREATE statements, keeping your actual data 100% safe!
+                sudo sed -i '/^\/\*/s/DEFINER=[^*]*\*/\*/g' /tmp/downloaded_db.sql
+                sudo sed -i '/^CREATE/s/DEFINER=[^ ]* //g' /tmp/downloaded_db.sql
+                sudo sed -i '/^CREATE/s/DEFINER=\`[^\`]*\`@\`[^\`]*\` //g' /tmp/downloaded_db.sql
                 
                 echo -e "${GREEN}[*] Creating Database & Importing...${RESET}"
                 sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`$TARGET_DB\`;"
                 sudo mysql -e "GRANT ALL PRIVILEGES ON \`$TARGET_DB\`.* TO 'admin'@'localhost'; FLUSH PRIVILEGES;"
                 
-                # Importing from the safe /tmp/ folder
                 sudo mysql "$TARGET_DB" < /tmp/downloaded_db.sql
                 
                 if [ $? -eq 0 ]; then
                     echo -e "${GREEN}[+] Database Successfully Restored to '$TARGET_DB'!${RESET}"
                 else
-                    echo -e "${RED}[-] Error during import!${RESET}"
+                    echo -e "${RED}[-] Error during import! Please check line number in error.${RESET}"
                 fi
                 sudo rm /tmp/downloaded_db.sql
             fi
             read -p "Press Enter to return..."
             ;;
-
-        0)
-            clear
-            echo -e "${GREEN}Exiting Master Tool. Server is safe. Have a great day, Prodip Bandhu!${RESET}"
-            exit 0
-            ;;
-            
-        *)
-            echo -e "${RED}Invalid Option!${RESET}"; sleep 1 ;;
-    esac
-done
