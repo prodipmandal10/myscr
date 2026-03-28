@@ -307,7 +307,6 @@ EOF
             ;;
 
         15)
-           15)
             echo -e "\n${MAGENTA}[*] ☁️ AUTO DB RESTORE FROM GDRIVE (VPS/Local Fix)${RESET}"
             read -p "Enter GDrive Share Link of your SQL file: " LINK
             FILE_ID=$(echo "$LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
