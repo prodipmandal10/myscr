@@ -367,41 +367,41 @@ EOF
                 DB_PASS=""
                 DB_NAME=""
 
-                # ── PATTERN 1: $servername / $host / $db_host = 'value' ──
-                [ -z "$DB_HOST" ] && DB_HOST=$(grep -iP '^\s*\$(servername|db_host|dbhost|host)\s*=\s*["\']' "$FILE" \
-                    | grep -oP '(?<=["\'])[^"\']+(?=["\'])' | grep -iv '^\s*$' | tail -1)
-                [ -z "$DB_USER" ] && DB_USER=$(grep -iP '^\s*\$(username|db_user|dbuser|user)\s*=\s*["\']' "$FILE" \
-                    | grep -oP '(?<=["\'])[^"\']+(?=["\'])' | grep -iv '^\s*$' | tail -1)
-                [ -z "$DB_PASS" ] && DB_PASS=$(grep -iP '^\s*\$(password|db_pass|dbpass|pass)\s*=\s*["\']' "$FILE" \
-                    | grep -oP '(?<=["\'])[^"\']+(?=["\'])' | grep -iv '^\s*$' | tail -1)
-                [ -z "$DB_NAME" ] && DB_NAME=$(grep -iP '^\s*\$(dbname|db_name|database|db)\s*=\s*["\']' "$FILE" \
-                    | grep -oP '(?<=["\'])[^"\']+(?=["\'])' | grep -iv '^\s*$' | tail -1)
+                # ── PATTERN 1: $servername / $host = "value" ──
+                [ -z "$DB_HOST" ] && DB_HOST=$(grep -iP '^\s*\$(servername|db_host|dbhost|host)\s*=\s*' "$FILE" \
+                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | grep -v "^$" | tail -1)
+                [ -z "$DB_USER" ] && DB_USER=$(grep -iP '^\s*\$(username|db_user|dbuser|user)\s*=\s*' "$FILE" \
+                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | grep -v "^$" | tail -1)
+                [ -z "$DB_PASS" ] && DB_PASS=$(grep -iP '^\s*\$(password|db_pass|dbpass|pass)\s*=\s*' "$FILE" \
+                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | grep -v "^$" | tail -1)
+                [ -z "$DB_NAME" ] && DB_NAME=$(grep -iP '^\s*\$(dbname|db_name|database|db)\s*=\s*' "$FILE" \
+                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | grep -v "^$" | tail -1)
 
                 # ── PATTERN 2: new mysqli("host","user","pass","db") inline ──
                 MYSQLI_LINE=$(grep -iP 'new\s+mysqli\s*\(' "$FILE" | grep -v '\$' | head -1)
                 if [ -n "$MYSQLI_LINE" ]; then
-                    ARGS=$(echo "$MYSQLI_LINE" | grep -oP '(?<=mysqli\().*?(?=\))' | head -1)
-                    [ -z "$DB_HOST" ] && DB_HOST=$(echo "$ARGS" | awk -F',' '{print $1}' | tr -d ' "'\''')
-                    [ -z "$DB_USER" ] && DB_USER=$(echo "$ARGS" | awk -F',' '{print $2}' | tr -d ' "'\''')
-                    [ -z "$DB_PASS" ] && DB_PASS=$(echo "$ARGS" | awk -F',' '{print $3}' | tr -d ' "'\''')
-                    [ -z "$DB_NAME" ] && DB_NAME=$(echo "$ARGS" | awk -F',' '{print $4}' | tr -d ' "'\''')
+                    ARGS=$(echo "$MYSQLI_LINE" | grep -oP "(?<=mysqli\()[^)]+")
+                    [ -z "$DB_HOST" ] && DB_HOST=$(echo "$ARGS" | awk -F',' '{print $1}' | tr -d ' "'"'"'')
+                    [ -z "$DB_USER" ] && DB_USER=$(echo "$ARGS" | awk -F',' '{print $2}' | tr -d ' "'"'"'')
+                    [ -z "$DB_PASS" ] && DB_PASS=$(echo "$ARGS" | awk -F',' '{print $3}' | tr -d ' "'"'"'')
+                    [ -z "$DB_NAME" ] && DB_NAME=$(echo "$ARGS" | awk -F',' '{print $4}' | tr -d ' "'"'"'')
                 fi
 
-                # ── PATTERN 3: define('DB_HOST','value') — WordPress ──
-                [ -z "$DB_HOST" ] && DB_HOST=$(grep -iP "define\s*\(\s*['\"]DB_HOST['\"]" "$FILE" \
-                    | grep -oP "(?<=,\s*['\"])[^'\"]+(?=['\"])" | tail -1)
-                [ -z "$DB_USER" ] && DB_USER=$(grep -iP "define\s*\(\s*['\"]DB_USER['\"]" "$FILE" \
-                    | grep -oP "(?<=,\s*['\"])[^'\"]+(?=['\"])" | tail -1)
-                [ -z "$DB_PASS" ] && DB_PASS=$(grep -iP "define\s*\(\s*['\"]DB_PASSWORD['\"]" "$FILE" \
-                    | grep -oP "(?<=,\s*['\"])[^'\"]+(?=['\"])" | tail -1)
-                [ -z "$DB_NAME" ] && DB_NAME=$(grep -iP "define\s*\(\s*['\"]DB_NAME['\"]" "$FILE" \
-                    | grep -oP "(?<=,\s*['\"])[^'\"]+(?=['\"])" | tail -1)
+                # ── PATTERN 3: define('DB_HOST','value') WordPress style ──
+                [ -z "$DB_HOST" ] && DB_HOST=$(grep -iP "define\s*\(\s*[\"']DB_HOST[\"']" "$FILE" \
+                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | tail -1)
+                [ -z "$DB_USER" ] && DB_USER=$(grep -iP "define\s*\(\s*[\"']DB_USER[\"']" "$FILE" \
+                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | tail -1)
+                [ -z "$DB_PASS" ] && DB_PASS=$(grep -iP "define\s*\(\s*[\"']DB_PASSWORD[\"']" "$FILE" \
+                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | tail -1)
+                [ -z "$DB_NAME" ] && DB_NAME=$(grep -iP "define\s*\(\s*[\"']DB_NAME[\"']" "$FILE" \
+                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | tail -1)
 
                 # ── PATTERN 4: ENV style DB_HOST=value ──
                 [ -z "$DB_HOST" ] && DB_HOST=$(grep -iE "^DB_HOST\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
-                [ -z "$DB_USER" ] && DB_USER=$(grep -iE "^DB_USER(NAME)?\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
-                [ -z "$DB_PASS" ] && DB_PASS=$(grep -iE "^DB_PASS(WORD)?\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
-                [ -z "$DB_NAME" ] && DB_NAME=$(grep -iE "^DB_NAME\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
+                [ -z "$DB_USER" ] && DB_USER=$(grep -iE "^DB_USERNAME\s*=|^DB_USER\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
+                [ -z "$DB_PASS" ] && DB_PASS=$(grep -iE "^DB_PASSWORD\s*=|^DB_PASS\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
+                [ -z "$DB_NAME" ] && DB_NAME=$(grep -iE "^DB_NAME\s*=|^DB_DATABASE\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
 
                 # অন্তত একটা value পেলেই দেখাও
                 if [ -n "$DB_HOST" ] || [ -n "$DB_USER" ] || [ -n "$DB_PASS" ] || [ -n "$DB_NAME" ]; then
