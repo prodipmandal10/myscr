@@ -344,12 +344,83 @@ EOF
             ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null
             read -p "Enter project folder name to search (e.g. rainbow): " PROJ_DIR
             if [ -d "/var/www/html/$PROJ_DIR" ]; then
-                echo -e "${GREEN}[*] Scanning ONLY .php & .env files for DB Configs...${RESET}"
-                echo -e "${CYAN}-----------------------------------------------------${RESET}"
-                # The MAGIC: Only searches PHP/ENV files, ignores SQL/TXT/Log, and cuts lines to max 200 characters!
-                grep --color=always -rnEi --include=\*.php --include=\*.env "(mysqli_connect|new pdo|db_host|db_user|db_name|db_pass|dbname=|mysql_connect|host=|user=|password=)" /var/www/html/$PROJ_DIR | cut -c 1-200 | head -n 20
-                echo -e "${CYAN}-----------------------------------------------------${RESET}"
-                echo -e "${YELLOW}Note: Now it shows clean results! Look at the left side for the File Name & Line Number.${RESET}"
+                echo -e "${GREEN}[*] Deep Scanning project: $PROJ_DIR ...${RESET}"
+
+                FOUND_FILES=$(grep -rl --include=\*.php --include=\*.env -iE \
+                  "(db_host|db_user|db_name|db_pass|db_password|mysqli_connect|DB_HOST|DB_USER|DB_NAME|DB_PASSWORD)" \
+                  /var/www/html/$PROJ_DIR 2>/dev/null)
+
+                if [ -z "$FOUND_FILES" ]; then
+                    echo -e "${RED}[-] No DB config found in this project!${RESET}"
+                else
+                    SHOWN=0
+                    for FILE in $FOUND_FILES; do
+
+                        # Pattern 1: $var = 'value'
+                        DB_HOST=$(grep -iE "(db_host|dbhost|\\\$host)\s*=\s*['\"]" "$FILE" | grep -oP "(?<=['\"])[^'\"]+(?=['\"])" | grep -v "^\s*$" | tail -1)
+                        DB_USER=$(grep -iE "(db_user|dbuser|\\\$user|db_username)\s*=\s*['\"]" "$FILE" | grep -oP "(?<=['\"])[^'\"]+(?=['\"])" | grep -v "^\s*$" | tail -1)
+                        DB_PASS=$(grep -iE "(db_pass|dbpass|\\\$pass|db_password|\\\$password)\s*=\s*['\"]" "$FILE" | grep -oP "(?<=['\"])[^'\"]+(?=['\"])" | grep -v "^\s*$" | tail -1)
+                        DB_NAME=$(grep -iE "(db_name|dbname|\\\$dbname|\\\$database)\s*=\s*['\"]" "$FILE" | grep -oP "(?<=['\"])[^'\"]+(?=['\"])" | grep -v "^\s*$" | tail -1)
+
+                        # Pattern 2: define('DB_HOST', 'value') — WordPress style
+                        [ -z "$DB_HOST" ] && DB_HOST=$(grep -iP "define\s*\(\s*['\"]DB_HOST['\"]" "$FILE" | grep -oP "(?<=,\s*['\"])[^'\"]+(?=['\"])" | tail -1)
+                        [ -z "$DB_USER" ] && DB_USER=$(grep -iP "define\s*\(\s*['\"]DB_USER['\"]" "$FILE" | grep -oP "(?<=,\s*['\"])[^'\"]+(?=['\"])" | tail -1)
+                        [ -z "$DB_PASS" ] && DB_PASS=$(grep -iP "define\s*\(\s*['\"]DB_PASSWORD['\"]" "$FILE" | grep -oP "(?<=,\s*['\"])[^'\"]+(?=['\"])" | tail -1)
+                        [ -z "$DB_NAME" ] && DB_NAME=$(grep -iP "define\s*\(\s*['\"]DB_NAME['\"]" "$FILE" | grep -oP "(?<=,\s*['\"])[^'\"]+(?=['\"])" | tail -1)
+
+                        # Pattern 3: ENV style DB_HOST=value
+                        [ -z "$DB_HOST" ] && DB_HOST=$(grep -iE "^DB_HOST\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
+                        [ -z "$DB_USER" ] && DB_USER=$(grep -iE "^DB_USER(NAME)?\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
+                        [ -z "$DB_PASS" ] && DB_PASS=$(grep -iE "^DB_PASS(WORD)?\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
+                        [ -z "$DB_NAME" ] && DB_NAME=$(grep -iE "^DB_NAME\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
+
+                        # শুধু সেই files দেখাবো যেখানে অন্তত একটা value আছে
+                        if [ -n "$DB_HOST" ] || [ -n "$DB_USER" ] || [ -n "$DB_PASS" ] || [ -n "$DB_NAME" ]; then
+                            SHOWN=$((SHOWN+1))
+                            SHORT_FILE="${FILE#/var/www/html/$PROJ_DIR/}"
+                            echo -e "\n${MAGENTA}📄 Config File : ${CYAN}$SHORT_FILE${RESET}"
+                            echo -e "${BLUE}=====================================================${RESET}"
+                            if [ -n "$DB_HOST" ]; then
+                                echo -e "  🌐 Host      : ${GREEN}$DB_HOST${RESET}"
+                            else
+                                echo -e "  🌐 Host      : ${RED}Not Found${RESET}"
+                            fi
+                            if [ -n "$DB_NAME" ]; then
+                                echo -e "  🗄️  Database  : ${GREEN}$DB_NAME${RESET}"
+                            else
+                                echo -e "  🗄️  Database  : ${RED}Not Found${RESET}"
+                            fi
+                            if [ -n "$DB_USER" ]; then
+                                echo -e "  👤 Username  : ${GREEN}$DB_USER${RESET}"
+                            else
+                                echo -e "  👤 Username  : ${RED}Not Found${RESET}"
+                            fi
+                            if [ -n "$DB_PASS" ]; then
+                                echo -e "  🔑 Password  : ${GREEN}$DB_PASS${RESET}"
+                            else
+                                echo -e "  🔑 Password  : ${RED}Not Found${RESET}"
+                            fi
+                            echo -e "${BLUE}=====================================================${RESET}"
+
+                            # Live DB connection test
+                            if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ] && [ -n "$DB_NAME" ]; then
+                                echo -e "  🔌 Testing DB Connection..."
+                                if sudo mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e ";" 2>/dev/null; then
+                                    echo -e "  ✅ ${GREEN}Connection SUCCESS! DB is LIVE & Working.${RESET}"
+                                else
+                                    echo -e "  ❌ ${RED}Connection FAILED! Check credentials.${RESET}"
+                                fi
+                            fi
+                            echo -e "${BLUE}=====================================================${RESET}"
+                        fi
+                    done
+
+                    if [ "$SHOWN" -eq 0 ]; then
+                        echo -e "${RED}[-] Files found but no parseable credentials extracted.${RESET}"
+                    else
+                        echo -e "\n${GREEN}[+] Total $SHOWN config file(s) found with credentials.${RESET}"
+                    fi
+                fi
             else
                 echo -e "${RED}[-] Folder not found!${RESET}"
             fi
