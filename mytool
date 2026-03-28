@@ -14,7 +14,7 @@ while true; do
     echo -e "${YELLOW}=====================================================${RESET}"
     echo -e "${MAGENTA}                 👑 MADE BY PRODIP 👑                ${RESET}"
     echo -e "${YELLOW}=====================================================${RESET}"
-    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.5 🌟      ${RESET}"
+    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.6 🌟      ${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
     echo -e "${CYAN}1) 🛠️  INITIAL SETUP (Install Apache, PHP, MySQL)${RESET}"
     echo -e "${CYAN}2) 🌐 SETUP DOMAIN (Link Domain to a Project)${RESET}"
@@ -32,9 +32,10 @@ while true; do
     echo -e "${YELLOW}13) 📝 FILE EXPLORER & EDITOR (Live Code Edit)${RESET}"
     echo -e "${CYAN}14) 🗄️  MYSQL DB MANAGER (Tree View, Create & Drop)${RESET}"
     echo -e "${MAGENTA}15) ☁️  AUTO DB RESTORE FROM GDRIVE (Fixes Root/User Error)${RESET}"
+    echo -e "${GREEN}16) 🕵️‍♂️  DB CREDENTIAL FINDER (Auto Search Configs)${RESET}"
     echo -e "${RED}0) ❌ EXIT${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
-    read -p "Select an option [0-15]: " choice
+    read -p "Select an option [0-16]: " choice
 
     case $choice in
         1)
@@ -318,7 +319,6 @@ EOF
                 sudo wget -qO /tmp/downloaded_db.sql "https://drive.google.com/uc?export=download&id=$FILE_ID"
                 
                 echo -e "${YELLOW}[*] Applying SAFE MAGIC FIX: Removing 'DEFINER' errors...${RESET}"
-                # This SAFE version will ONLY target CREATE statements, keeping your actual data 100% safe!
                 sudo sed -i '/^\/\*/s/DEFINER=[^*]*\*/\*/g' /tmp/downloaded_db.sql
                 sudo sed -i '/^CREATE/s/DEFINER=[^ ]* //g' /tmp/downloaded_db.sql
                 sudo sed -i '/^CREATE/s/DEFINER=\`[^\`]*\`@\`[^\`]*\` //g' /tmp/downloaded_db.sql
@@ -335,6 +335,23 @@ EOF
                     echo -e "${RED}[-] Error during import! Please check line number in error.${RESET}"
                 fi
                 sudo rm /tmp/downloaded_db.sql
+            fi
+            read -p "Press Enter to return..."
+            ;;
+
+        16)
+            echo -e "\n${YELLOW}[*] 🕵️‍♂️ DB CREDENTIAL FINDER (Auto Search)${RESET}"
+            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null
+            read -p "Enter project folder name to search (e.g. rainbow): " PROJ_DIR
+            if [ -d "/var/www/html/$PROJ_DIR" ]; then
+                echo -e "${GREEN}[*] Scanning all files in '$PROJ_DIR' for Database Connections...${RESET}"
+                echo -e "${CYAN}-----------------------------------------------------${RESET}"
+                # This grep command searches recursively for common DB connection strings and shows the line numbers!
+                grep --color=always -rnEi "(mysqli_connect|new pdo|db_host|db_user|db_name|db_pass|dbname=|mysql_connect)" /var/www/html/$PROJ_DIR | head -n 30
+                echo -e "${CYAN}-----------------------------------------------------${RESET}"
+                echo -e "${YELLOW}Note: The list above shows the exact File Name and Line Number where database settings are located!${RESET}"
+            else
+                echo -e "${RED}[-] Folder not found!${RESET}"
             fi
             read -p "Press Enter to return..."
             ;;
