@@ -338,3 +338,14 @@ EOF
             fi
             read -p "Press Enter to return..."
             ;;
+
+        0)
+            clear
+            echo -e "${GREEN}Exiting Master Tool. Server is safe. Have a great day, Prodip Bandhu!${RESET}"
+            exit 0
+            ;;
+            
+        *)
+            echo -e "${RED}Invalid Option!${RESET}"; sleep 1 ;;
+    esac
+done
