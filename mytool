@@ -14,7 +14,7 @@ while true; do
     echo -e "${YELLOW}=====================================================${RESET}"
     echo -e "${MAGENTA}                 👑 MADE BY PRODIP 👑                ${RESET}"
     echo -e "${YELLOW}=====================================================${RESET}"
-    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.6 🌟      ${RESET}"
+    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.7 🌟      ${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
     echo -e "${CYAN}1) 🛠️  INITIAL SETUP (Install Apache, PHP, MySQL)${RESET}"
     echo -e "${CYAN}2) 🌐 SETUP DOMAIN (Link Domain to a Project)${RESET}"
@@ -32,7 +32,7 @@ while true; do
     echo -e "${YELLOW}13) 📝 FILE EXPLORER & EDITOR (Live Code Edit)${RESET}"
     echo -e "${CYAN}14) 🗄️  MYSQL DB MANAGER (Tree View, Create & Drop)${RESET}"
     echo -e "${MAGENTA}15) ☁️  AUTO DB RESTORE FROM GDRIVE (Fixes Root/User Error)${RESET}"
-    echo -e "${GREEN}16) 🕵️‍♂️  DB CREDENTIAL FINDER (Auto Search Configs)${RESET}"
+    echo -e "${GREEN}16) 🕵️‍♂️  DB CREDENTIAL FINDER (Smart Auto Search)${RESET}"
     echo -e "${RED}0) ❌ EXIT${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
     read -p "Select an option [0-16]: " choice
@@ -340,16 +340,16 @@ EOF
             ;;
 
         16)
-            echo -e "\n${YELLOW}[*] 🕵️‍♂️ DB CREDENTIAL FINDER (Auto Search)${RESET}"
+            echo -e "\n${YELLOW}[*] 🕵️‍♂️ DB CREDENTIAL FINDER (Smart Auto Search)${RESET}"
             ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null
             read -p "Enter project folder name to search (e.g. rainbow): " PROJ_DIR
             if [ -d "/var/www/html/$PROJ_DIR" ]; then
-                echo -e "${GREEN}[*] Scanning all files in '$PROJ_DIR' for Database Connections...${RESET}"
+                echo -e "${GREEN}[*] Scanning ONLY .php & .env files for DB Configs...${RESET}"
                 echo -e "${CYAN}-----------------------------------------------------${RESET}"
-                # This grep command searches recursively for common DB connection strings and shows the line numbers!
-                grep --color=always -rnEi "(mysqli_connect|new pdo|db_host|db_user|db_name|db_pass|dbname=|mysql_connect)" /var/www/html/$PROJ_DIR | head -n 30
+                # The MAGIC: Only searches PHP/ENV files, ignores SQL/TXT/Log, and cuts lines to max 200 characters!
+                grep --color=always -rnEi --include=\*.php --include=\*.env "(mysqli_connect|new pdo|db_host|db_user|db_name|db_pass|dbname=|mysql_connect|host=|user=|password=)" /var/www/html/$PROJ_DIR | cut -c 1-200 | head -n 20
                 echo -e "${CYAN}-----------------------------------------------------${RESET}"
-                echo -e "${YELLOW}Note: The list above shows the exact File Name and Line Number where database settings are located!${RESET}"
+                echo -e "${YELLOW}Note: Now it shows clean results! Look at the left side for the File Name & Line Number.${RESET}"
             else
                 echo -e "${RED}[-] Folder not found!${RESET}"
             fi
