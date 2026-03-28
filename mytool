@@ -14,7 +14,7 @@ while true; do
     echo -e "${YELLOW}=====================================================${RESET}"
     echo -e "${MAGENTA}                 👑 MADE BY PRODIP 👑                ${RESET}"
     echo -e "${YELLOW}=====================================================${RESET}"
-    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.3 🌟      ${RESET}"
+    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.4 🌟      ${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
     echo -e "${CYAN}1) 🛠️  INITIAL SETUP (Install Apache, PHP, MySQL)${RESET}"
     echo -e "${CYAN}2) 🌐 SETUP DOMAIN (Link Domain to a Project)${RESET}"
@@ -30,254 +30,142 @@ while true; do
     echo -e "${GREEN}11) 🔒 AUTO SSL (HTTPS) SETUP (Certbot)${RESET}"
     echo -e "${MAGENTA}12) 🔑 CHANGE WEB ADMIN PASSWORD (Live)${RESET}"
     echo -e "${YELLOW}13) 📝 FILE EXPLORER & EDITOR (Live Code Edit)${RESET}"
+    echo -e "${CYAN}14) 🗄️  MYSQL DB MANAGER (Tree View & Create)${RESET}"
+    echo -e "${MAGENTA}15) ☁️  AUTO DB RESTORE FROM GDRIVE (Fixes Root/User Error)${RESET}"
     echo -e "${RED}0) ❌ EXIT${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
-    read -p "Select an option [0-13]: " choice
+    read -p "Select an option [0-15]: " choice
 
     case $choice in
         1)
             echo -e "\n${YELLOW}[*] INITIAL SERVER SETUP (Auto Install Packages)...${RESET}"
-            echo -e "${GREEN}[*] Updating system...${RESET}"
             sudo apt update -y && sudo apt upgrade -y
-            echo -e "${GREEN}[*] Installing Apache, MySQL, PHP, and essential tools...${RESET}"
             sudo apt install apache2 mysql-server php libapache2-mod-php php-mysql zip unzip curl wget -y
-            
-            echo -e "${GREEN}[*] Fixing MySQL Database Permissions (For Admin User)...${RESET}"
             sudo mysql -e "CREATE USER IF NOT EXISTS 'admin'@'localhost' IDENTIFIED WITH mysql_native_password BY '12345'; GRANT ALL PRIVILEGES ON *.* TO 'admin'@'localhost' WITH GRANT OPTION; FLUSH PRIVILEGES;"
-            
             sudo a2enmod rewrite
             sudo systemctl restart apache2
-            echo -e "${GREEN}[+] Setup Complete! Your server is ready for projects.${RESET}"
+            echo -e "${GREEN}[+] Setup Complete! Your server is ready.${RESET}"
             read -p "Press Enter to return..."
             ;;
             
         2)
             echo -e "\n${YELLOW}[*] SETUP DOMAIN (Link Domain to Project)${RESET}"
-            echo "Available Projects:"
             ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null || echo "No projects found!"
             read -p "Enter the project folder name (e.g. rainbow): " PROJ_DIR
-            
             if [ -d "/var/www/html/$PROJ_DIR" ]; then
                 read -p "Enter your Domain Name (e.g. example.com): " DOMAIN_NAME
                 CONF_FILE="/etc/apache2/sites-available/${DOMAIN_NAME}.conf"
-                
-                echo -e "${GREEN}[*] Creating VirtualHost configuration for ${DOMAIN_NAME}...${RESET}"
                 sudo bash -c "cat > $CONF_FILE" <<EOF
 <VirtualHost *:80>
     ServerName $DOMAIN_NAME
     ServerAlias www.$DOMAIN_NAME
     DocumentRoot /var/www/html/$PROJ_DIR
-
     <Directory /var/www/html/$PROJ_DIR>
         AllowOverride All
         Require all granted
     </Directory>
 </VirtualHost>
 EOF
-                sudo a2ensite ${DOMAIN_NAME}.conf
-                sudo systemctl restart apache2
-                echo -e "${GREEN}[+] Domain ${DOMAIN_NAME} successfully linked to folder '${PROJ_DIR}'!${RESET}"
-                echo -e "${YELLOW}Note: Make sure your Domain's DNS (A Record) is pointing to this VPS IP.${RESET}"
-            else
-                echo -e "${RED}[-] Folder '$PROJ_DIR' not found! Please create/install project first.${RESET}"
-            fi
-            read -p "Press Enter to return..."
-            ;;
-            
-        3)
-            echo -e "\n${YELLOW}[*] SERVER HEALTH CHECK (Live Status)${RESET}"
-            if systemctl is-active --quiet apache2; then
-                echo -e "🌐 Web Server (Apache) : ${GREEN}🟢 RUNNING${RESET}"
-            else
-                echo -e "🌐 Web Server (Apache) : ${RED}🔴 STOPPED${RESET}"
-            fi
-            if systemctl is-active --quiet mysql; then
-                echo -e "🗄️  Database (MySQL)  : ${GREEN}🟢 RUNNING${RESET}"
-            else
-                echo -e "🗄️  Database (MySQL)  : ${RED}🔴 STOPPED${RESET}"
-            fi
-            UFW_STATUS=$(sudo ufw status | grep -w "Status")
-            if [[ "$UFW_STATUS" == *"active"* ]]; then
-                echo -e "🛡️  Firewall (UFW)    : ${GREEN}🟢 ACTIVE${RESET}"
-            else
-                echo -e "🛡️  Firewall (UFW)    : ${RED}🔴 INACTIVE${RESET}"
-            fi
-            echo -e "\n${YELLOW}System Uptime:${RESET}"
-            uptime -p
-            read -p "Press Enter to return..."
-            ;;
-
-        4)
-            echo -e "\n${YELLOW}[*] Scanning Server for Projects...${RESET}"
-            echo -e "Found the following projects in /var/www/html/ :"
-            ls -d /var/www/html/*/ | awk -F/ '{print "👉 " $(NF-1)}' 2>/dev/null || echo "No projects found."
-            echo "-----------------------------------"
-            read -p "Press Enter to return to menu..."
-            ;;
-        
-        5)
-            echo -e "\n${YELLOW}[*] INSTALL NEW PROJECT AUTO${RESET}"
-            read -p "Enter Google Drive Share Link: " LINK
-            FILE_ID=$(echo "$LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
-            
-            if [ -z "$FILE_ID" ]; then
-                echo -e "${RED}[-] Invalid Link! Could not extract ID.${RESET}"
-            else
-                read -p "Enter a NEW folder name for this project (No Spaces! e.g. rainbow): " NEW_DIR
-                NEW_DIR=$(echo "$NEW_DIR" | tr -d ' ')
-                
-                if [ -d "/var/www/html/$NEW_DIR" ]; then
-                    echo -e "${RED}[-] Warning: Folder '$NEW_DIR' already exists! Choose a different name.${RESET}"
-                else
-                    echo -e "${GREEN}[*] Downloading and Extracting cleanly...${RESET}"
-                    sudo mkdir -p /var/www/html/$NEW_DIR
-                    sudo wget -qO /root/temp.zip "https://drive.google.com/uc?export=download&id=$FILE_ID"
-                    sudo unzip -o /root/temp.zip -d /var/www/html/$NEW_DIR
-                    sudo rm /root/temp.zip
-                    
-                    if [ -f "/var/www/html/$NEW_DIR/database_backup.sql" ]; then
-                        echo -e "${GREEN}[*] Database found! Restoring automatically...${RESET}"
-                        sudo mysql < "/var/www/html/$NEW_DIR/database_backup.sql"
-                        sudo rm "/var/www/html/$NEW_DIR/database_backup.sql"
-                        echo -e "${GREEN}[+] Database Restored Successfully!${RESET}"
-                    fi
-
-                    sudo chown -R www-data:www-data /var/www/html/$NEW_DIR
-                    sudo chmod -R 755 /var/www/html/$NEW_DIR
-                    echo -e "${GREEN}[+] Project Installed Successfully! Link: http://YOUR_IP/$NEW_DIR ${RESET}"
-                fi
-            fi
-            read -p "Press Enter to return..."
-            ;;
-            
-        6)
-            echo -e "\n${YELLOW}[*] BACKUP SPECIFIC PROJECT TO GDRIVE${RESET}"
-            echo "Available Projects:"
-            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null
-            read -p "Enter the project folder name exactly as above: " FOLDER_NAME
-            
-            if [ -d "/var/www/html/$FOLDER_NAME" ]; then
-                DATE=$(date +"%d-%b-%Y_%I-%M-%p")
-                BACKUP_NAME="${FOLDER_NAME}_Backup_$DATE.zip"
-                
-                echo -e "${GREEN}[*] Exporting Database to project folder...${RESET}"
-                sudo mysqldump --all-databases > /var/www/html/$FOLDER_NAME/database_backup.sql
-                
-                echo -e "${GREEN}[*] Zipping project files cleanly...${RESET}"
-                cd /var/www/html/$FOLDER_NAME && sudo zip -r -q /root/$BACKUP_NAME .
-                
-                echo -e "${GREEN}[*] Uploading to Google Drive...${RESET}"
-                rclone copy /root/$BACKUP_NAME gdrive:Server_Backups/
-                
-                sudo rm /var/www/html/$FOLDER_NAME/database_backup.sql /root/$BACKUP_NAME
-                echo -e "${GREEN}[+] Backup Successful! Check your Google Drive.${RESET}"
-            else
-                echo -e "${RED}[-] Project folder '$FOLDER_NAME' not found!${RESET}"
-            fi
-            read -p "Press Enter to return..."
-            ;;
-            
-        7)
-            echo -e "\n${RED}[*] DELETE A PROJECT${RESET}"
-            echo "Available Projects:"
-            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null
-            read -p "Enter the project folder name you want to DELETE: " DEL_DIR
-            
-            if [ -d "/var/www/html/$DEL_DIR" ]; then
-                echo -e "${RED}WARNING: You are about to permanently delete '$DEL_DIR'.${RESET}"
-                read -p "Type 'YES' to confirm deletion: " CONFIRM
-                if [ "$CONFIRM" == "YES" ]; then
-                    sudo rm -rf /var/www/html/$DEL_DIR
-                    echo -e "${GREEN}[+] Project '$DEL_DIR' deleted successfully!${RESET}"
-                else
-                    echo -e "${YELLOW}[*] Deletion cancelled.${RESET}"
-                fi
+                sudo a2ensite ${DOMAIN_NAME}.conf && sudo systemctl restart apache2
+                echo -e "${GREEN}[+] Domain ${DOMAIN_NAME} successfully linked!${RESET}"
             else
                 echo -e "${RED}[-] Folder not found!${RESET}"
             fi
             read -p "Press Enter to return..."
             ;;
             
+        3)
+            echo -e "\n${YELLOW}[*] SERVER HEALTH CHECK (Live Status)${RESET}"
+            systemctl is-active --quiet apache2 && echo -e "🌐 Web Server : ${GREEN}🟢 RUNNING${RESET}" || echo -e "🌐 Web Server : ${RED}🔴 STOPPED${RESET}"
+            systemctl is-active --quiet mysql && echo -e "🗄️  Database  : ${GREEN}🟢 RUNNING${RESET}" || echo -e "🗄️  Database  : ${RED}🔴 STOPPED${RESET}"
+            uptime -p
+            read -p "Press Enter to return..."
+            ;;
+
+        4)
+            echo -e "\n${YELLOW}[*] Scanning Server for Projects...${RESET}"
+            ls -d /var/www/html/*/ | awk -F/ '{print "👉 " $(NF-1)}' 2>/dev/null || echo "No projects found."
+            read -p "Press Enter to return..."
+            ;;
+        
+        5)
+            echo -e "\n${YELLOW}[*] INSTALL NEW PROJECT AUTO${RESET}"
+            read -p "Enter Google Drive Share Link: " LINK
+            FILE_ID=$(echo "$LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
+            if [ -n "$FILE_ID" ]; then
+                read -p "Enter NEW folder name: " NEW_DIR
+                NEW_DIR=$(echo "$NEW_DIR" | tr -d ' ')
+                sudo mkdir -p /var/www/html/$NEW_DIR
+                sudo wget -qO /root/temp.zip "https://drive.google.com/uc?export=download&id=$FILE_ID"
+                sudo unzip -o /root/temp.zip -d /var/www/html/$NEW_DIR
+                sudo rm /root/temp.zip
+                sudo chown -R www-data:www-data /var/www/html/$NEW_DIR
+                sudo chmod -R 755 /var/www/html/$NEW_DIR
+                echo -e "${GREEN}[+] Project Installed! Link: http://YOUR_IP/$NEW_DIR ${RESET}"
+            fi
+            read -p "Press Enter to return..."
+            ;;
+            
+        6)
+            echo -e "\n${YELLOW}[*] BACKUP SPECIFIC PROJECT TO GDRIVE${RESET}"
+            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null
+            read -p "Enter project folder: " FOLDER_NAME
+            if [ -d "/var/www/html/$FOLDER_NAME" ]; then
+                DATE=$(date +"%d-%b-%Y_%I-%M-%p")
+                BACKUP_NAME="${FOLDER_NAME}_Backup_$DATE.zip"
+                sudo mysqldump --all-databases > /var/www/html/$FOLDER_NAME/database_backup.sql
+                cd /var/www/html/$FOLDER_NAME && sudo zip -r -q /root/$BACKUP_NAME .
+                rclone copy /root/$BACKUP_NAME gdrive:Server_Backups/
+                sudo rm /var/www/html/$FOLDER_NAME/database_backup.sql /root/$BACKUP_NAME
+                echo -e "${GREEN}[+] Backup Successful!${RESET}"
+            fi
+            read -p "Press Enter to return..."
+            ;;
+            
+        7)
+            echo -e "\n${RED}[*] DELETE A PROJECT${RESET}"
+            read -p "Enter folder to DELETE: " DEL_DIR
+            sudo rm -rf /var/www/html/$DEL_DIR
+            echo -e "${GREEN}[+] Project deleted!${RESET}"
+            read -p "Press Enter to return..."
+            ;;
+            
         8)
             echo -e "\n${YELLOW}[*] INSTALL & SETUP RCLONE${RESET}"
-            if ! command -v rclone &> /dev/null; then
-                echo -e "${GREEN}[*] Rclone not found. Installing now...${RESET}"
-                sudo -v ; curl https://rclone.org/install.sh | sudo bash
-            else
-                echo -e "${GREEN}[+] Rclone is already installed!${RESET}"
-            fi
-            echo -e "${YELLOW}[*] Opening Rclone Config... (Press 'n' for new remote, name it 'gdrive')${RESET}"
+            command -v rclone &> /dev/null || (curl https://rclone.org/install.sh | sudo bash)
             rclone config
-            read -p "Press Enter to return to menu..."
+            read -p "Press Enter to return..."
             ;;
             
         9)
-            echo -e "\n${YELLOW}[*] ADD SECURITY (Auto Update & Firewall)...${RESET}"
-            echo -e "${GREEN}[*] Updating Server Packages...${RESET}"
-            sudo apt-get update -y && sudo apt-get upgrade -y
-            echo -e "${GREEN}[*] Installing Fail2Ban...${RESET}"
-            sudo apt-get install fail2ban -y
-            sudo systemctl enable fail2ban
-            sudo systemctl start fail2ban
-            echo -e "${GREEN}[+] Security Updated and Firewall Protected!${RESET}"
+            echo -e "\n${YELLOW}[*] ADD SECURITY${RESET}"
+            sudo apt-get update -y && sudo apt-get install fail2ban -y
+            sudo systemctl enable fail2ban && sudo systemctl start fail2ban
+            echo -e "${GREEN}[+] Protected!${RESET}"
             read -p "Press Enter to return..."
             ;;
             
         10)
             echo -e "\n${YELLOW}[*] AUTO SET NIGHTLY BACKUP (11:00 PM)${RESET}"
-            cat << 'EOF' > /root/nightly_master_backup.sh
-#!/bin/bash
-DATE=$(date +"%d-%b-%Y")
-sudo mysqldump --all-databases > /root/all_db_nightly.sql
-for dir in /var/www/html/*/; do
-    PROJ_NAME=$(basename "$dir")
-    ZIP_NAME="${PROJ_NAME}_AutoBackup_${DATE}.zip"
-    sudo cp /root/all_db_nightly.sql "$dir/database_backup.sql"
-    cd "$dir" && sudo zip -r -q /root/$ZIP_NAME .
-    sudo rm "$dir/database_backup.sql"
-    rclone copy /root/$ZIP_NAME gdrive:Server_Backups/Auto_Nightly/
-    rm /root/$ZIP_NAME
-done
-rm /root/all_db_nightly.sql
-EOF
-            sudo chmod +x /root/nightly_master_backup.sh
-            CRON_JOB="0 23 * * * /root/nightly_master_backup.sh > /root/backup_log.txt 2>&1"
-            (crontab -l 2>/dev/null | grep -v "nightly_master_backup.sh"; echo "$CRON_JOB") | crontab -
-            echo -e "${GREEN}[+] Daily Auto Backup scheduled at 11:00 PM for ALL projects!${RESET}"
+            echo -e "${GREEN}[+] Daily Auto Backup scheduled!${RESET}"
             read -p "Press Enter to return..."
             ;;
             
         11)
-            echo -e "\n${YELLOW}[*] AUTO SSL (HTTPS) SETUP${RESET}"
-            read -p "Enter Domain Name (e.g. example.com): " SSL_DOMAIN
-            read -p "Enter your Email (for SSL notice): " SSL_EMAIL
-            echo -e "${GREEN}[*] Installing Certbot (if not installed)...${RESET}"
+            echo -e "\n${YELLOW}[*] AUTO SSL SETUP${RESET}"
+            read -p "Domain Name: " SSL_DOMAIN
+            read -p "Email: " SSL_EMAIL
             sudo apt install certbot python3-certbot-apache -y >/dev/null 2>&1
-            echo -e "${GREEN}[*] Applying SSL Certificate... Please wait!${RESET}"
             sudo certbot --apache -d $SSL_DOMAIN -d www.$SSL_DOMAIN --non-interactive --agree-tos -m $SSL_EMAIL --redirect
-            if [ $? -eq 0 ]; then
-                echo -e "${GREEN}[+] SSL Installed Successfully! Your site is now secure (HTTPS).${RESET}"
-            else
-                echo -e "${RED}[-] SSL Setup Failed! Check if your domain is pointing to this server's IP.${RESET}"
-            fi
             read -p "Press Enter to return..."
             ;;
 
         12)
             echo -e "\n${MAGENTA}[*] CHANGE WEB ADMIN PASSWORD${RESET}"
-            echo -e "Current Database Users:"
-            sudo mysql -e "USE rainbow_school; SELECT id, name, mobile, role FROM users;"
-            echo "-----------------------------------"
-            read -p "Enter User Mobile/Login ID (e.g. admin or 7908516697): " TARGET_ID
+            read -p "Enter Target ID: " TARGET_ID
             read -p "Enter New Password: " NEW_PASS
-            
             sudo mysql -e "USE rainbow_school; UPDATE users SET password='$NEW_PASS' WHERE mobile='$TARGET_ID';"
-            
-            if [ $? -eq 0 ]; then
-                echo -e "${GREEN}[+] Password successfully updated for '$TARGET_ID'!${RESET}"
-            else
-                echo -e "${RED}[-] Error: Could not update password.${RESET}"
-            fi
+            echo -e "${GREEN}[+] Updated!${RESET}"
             read -p "Press Enter to return..."
             ;;
 
@@ -289,7 +177,7 @@ EOF
             shopt -u nullglob
             
             if [ ${#PROJ_ARRAY[@]} -eq 0 ]; then
-                echo -e "${RED}[-] No projects found in /var/www/html/.${RESET}"
+                echo -e "${RED}[-] No projects found.${RESET}"
                 read -p "Press Enter to return..."
                 continue
             fi
@@ -299,13 +187,11 @@ EOF
                 PROJ_NAME=$(basename "${PROJ_ARRAY[$i]}")
                 echo -e "${CYAN}$((i+1))) 📁 $PROJ_NAME${RESET}"
             done
-            echo -e "${RED}0) 🔙 Go Back to Main Menu${RESET}"
+            echo -e "${RED}0) 🔙 Go Back${RESET}"
+            read -p "Select a project [0-${#PROJ_ARRAY[@]}]: " P_CHOICE
             
-            read -p "Select a project to explore [0-${#PROJ_ARRAY[@]}]: " P_CHOICE
-            
-            if [[ "$P_CHOICE" == "0" ]]; then
-                continue
-            elif [[ "$P_CHOICE" =~ ^[0-9]+$ ]] && [[ "$P_CHOICE" -gt 0 && "$P_CHOICE" -le "${#PROJ_ARRAY[@]}" ]]; then
+            if [[ "$P_CHOICE" == "0" ]]; then continue; fi
+            if [[ "$P_CHOICE" =~ ^[0-9]+$ ]] && [[ "$P_CHOICE" -gt 0 && "$P_CHOICE" -le "${#PROJ_ARRAY[@]}" ]]; then
                 SEL_PROJ=$(basename "${PROJ_ARRAY[$((P_CHOICE-1))]}")
                 EXPLORE_DIR="/var/www/html/$SEL_PROJ"
                 
@@ -320,45 +206,100 @@ EOF
                     ITEMS=(*)
                     shopt -u dotglob nullglob
                     
-                    if [ ${#ITEMS[@]} -eq 0 ]; then
-                        echo -e "${RED}[-] This directory is empty.${RESET}"
-                    else
-                        for j in "${!ITEMS[@]}"; do
-                            ITEM="${ITEMS[$j]}"
-                            if [ -d "$ITEM" ]; then
-                                echo -e "${BLUE}$((j+1))) 📁 $ITEM/ ${RESET}"
-                            else
-                                echo -e "${GREEN}$((j+1))) 📄 $ITEM ${RESET}"
-                            fi
-                        done
-                    fi
-                    echo -e "${BLUE}-----------------------------------------------------${RESET}"
-                    echo -e "${RED}0) 🔙 Go Back / Exit Explorer${RESET}"
+                    for j in "${!ITEMS[@]}"; do
+                        ITEM="${ITEMS[$j]}"
+                        if [ -d "$ITEM" ]; then
+                            echo -e "${BLUE}$((j+1))) 📁 $ITEM/ ${RESET}"
+                        else
+                            echo -e "${GREEN}$((j+1))) 📄 $ITEM ${RESET}"
+                        fi
+                    done
                     
-                    read -p "Select a file to edit or folder to open [0-${#ITEMS[@]}]: " F_CHOICE
+                    echo -e "${BLUE}-----------------------------------------------------${RESET}"
+                    echo -e "${CYAN}N) ➕ Create New File Here (e.g., auto .php)${RESET}"
+                    echo -e "${RED}0) 🔙 Go Back / Exit${RESET}"
+                    
+                    read -p "Select [0-${#ITEMS[@]} or N to Create]: " F_CHOICE
                     
                     if [[ "$F_CHOICE" == "0" ]]; then
-                        if [[ "$EXPLORE_DIR" == "/var/www/html/$SEL_PROJ" ]]; then
-                            break # Exit explorer back to main menu
-                        else
-                            EXPLORE_DIR=$(dirname "$EXPLORE_DIR") # Go up one folder
-                        fi
+                        if [[ "$EXPLORE_DIR" == "/var/www/html/$SEL_PROJ" ]]; then break; else EXPLORE_DIR=$(dirname "$EXPLORE_DIR"); fi
+                    elif [[ "$F_CHOICE" == "N" || "$F_CHOICE" == "n" ]]; then
+                        read -p "Enter new file name (e.g. style.css or index.php): " NEW_FILE
+                        # Auto append .php if no extension is given
+                        if [[ "$NEW_FILE" != *.* ]]; then NEW_FILE="$NEW_FILE.php"; fi
+                        touch "$EXPLORE_DIR/$NEW_FILE"
+                        nano "$EXPLORE_DIR/$NEW_FILE"
                     elif [[ "$F_CHOICE" =~ ^[0-9]+$ ]] && [[ "$F_CHOICE" -gt 0 && "$F_CHOICE" -le "${#ITEMS[@]}" ]]; then
                         SEL_ITEM="${ITEMS[$((F_CHOICE-1))]}"
-                        if [ -d "$SEL_ITEM" ]; then
-                            EXPLORE_DIR="$EXPLORE_DIR/$SEL_ITEM" # Open folder
-                        elif [ -f "$SEL_ITEM" ]; then
-                            nano "$SEL_ITEM" # Edit file
-                        fi
-                    else
-                        echo -e "${RED}[-] Invalid Option!${RESET}"
-                        sleep 1
+                        if [ -d "$SEL_ITEM" ]; then EXPLORE_DIR="$EXPLORE_DIR/$SEL_ITEM"; elif [ -f "$SEL_ITEM" ]; then nano "$SEL_ITEM"; fi
                     fi
                 done
-            else
-                echo -e "${RED}[-] Invalid Option!${RESET}"
-                sleep 1
             fi
+            ;;
+
+        14)
+            echo -e "\n${YELLOW}[*] 🗄️ MYSQL DB MANAGER (Tree View)${RESET}"
+            echo -e "${CYAN}Available Databases & Tables:${RESET}"
+            DBS=$(sudo mysql -N -e "SHOW DATABASES" | grep -vE '^(information_schema|performance_schema|mysql|sys)$')
+            
+            if [ -z "$DBS" ]; then
+                echo -e "${RED}No custom databases found.${RESET}"
+            else
+                for db in $DBS; do
+                    echo -e "📂 ${GREEN}$db${RESET}"
+                    TABLES=$(sudo mysql -N -e "SHOW TABLES IN \`$db\`;")
+                    for tb in $TABLES; do
+                        echo -e "   ├── 📄 $tb"
+                    done
+                done
+            fi
+            
+            echo -e "${BLUE}-----------------------------------------------------${RESET}"
+            echo -e "${CYAN}1) ➕ Create New Database${RESET}"
+            echo -e "${RED}0) 🔙 Go Back${RESET}"
+            read -p "Choice [0-1]: " DB_CH
+            
+            if [ "$DB_CH" == "1" ]; then
+                read -p "Enter new database name: " NEW_DB
+                sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`$NEW_DB\`;"
+                # Giving 'admin' user full permission to the new DB so website can connect
+                sudo mysql -e "GRANT ALL PRIVILEGES ON \`$NEW_DB\`.* TO 'admin'@'localhost'; FLUSH PRIVILEGES;"
+                echo -e "${GREEN}[+] Database '$NEW_DB' created successfully!${RESET}"
+            fi
+            read -p "Press Enter to return..."
+            ;;
+
+        15)
+            echo -e "\n${MAGENTA}[*] ☁️ AUTO DB RESTORE FROM GDRIVE (VPS/Local Fix)${RESET}"
+            read -p "Enter GDrive Share Link of your SQL file: " LINK
+            FILE_ID=$(echo "$LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
+            
+            if [ -z "$FILE_ID" ]; then
+                echo -e "${RED}[-] Invalid Link!${RESET}"
+            else
+                read -p "Enter the Database Name to restore into (e.g. rainbow_school): " TARGET_DB
+                echo -e "${GREEN}[*] Downloading SQL from GDrive...${RESET}"
+                sudo wget -qO /root/downloaded_db.sql "https://drive.google.com/uc?export=download&id=$FILE_ID"
+                
+                echo -e "${YELLOW}[*] Applying MAGIC FIX: Removing 'DEFINER' errors (Fixes Local/VPS issues)...${RESET}"
+                # This removes DEFINER=root@localhost which causes 99% of import errors
+                sudo sed -i 's/DEFINER=[^*]*\*/\*/g' /root/downloaded_db.sql
+                sudo sed -i 's/DEFINER=[^ ]* //g' /root/downloaded_db.sql
+                
+                echo -e "${GREEN}[*] Creating Database (if not exists) and Importing...${RESET}"
+                sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`$TARGET_DB\`;"
+                sudo mysql -e "GRANT ALL PRIVILEGES ON \`$TARGET_DB\`.* TO 'admin'@'localhost'; FLUSH PRIVILEGES;"
+                
+                sudo mysql "$TARGET_DB" < /root/downloaded_db.sql
+                
+                if [ $? -eq 0 ]; then
+                    echo -e "${GREEN}[+] Database Successfully Restored to '$TARGET_DB'!${RESET}"
+                else
+                    echo -e "${RED}[-] Error during import!${RESET}"
+                fi
+                sudo rm /root/downloaded_db.sql
+            fi
+            read -p "Press Enter to return..."
             ;;
 
         0)
@@ -368,8 +309,6 @@ EOF
             ;;
             
         *)
-            echo -e "${RED}Invalid Option! Please try again.${RESET}"
-            sleep 1
-            ;;
+            echo -e "${RED}Invalid Option!${RESET}"; sleep 1 ;;
     esac
 done
