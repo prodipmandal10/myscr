@@ -14,14 +14,14 @@ while true; do
     echo -e "${YELLOW}=====================================================${RESET}"
     echo -e "${MAGENTA}                 👑 MADE BY PRODIP 👑                ${RESET}"
     echo -e "${YELLOW}=====================================================${RESET}"
-    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.7 🌟      ${RESET}"
+    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.9 🌟      ${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
     echo -e "${CYAN}1) 🛠️  INITIAL SETUP (Install Apache, PHP, MySQL)${RESET}"
     echo -e "${CYAN}2) 🌐 SETUP DOMAIN (Link Domain to a Project)${RESET}"
     echo -e "${CYAN}3) 📊 SERVER HEALTH CHECK (Live Status)${RESET}"
     echo -e "${BLUE}-----------------------------------------------------${RESET}"
     echo -e "${CYAN}4) 📂 SHOW ALL PROJECTS (Running Websites)${RESET}"
-    echo -e "${CYAN}5) 🚀 INSTALL NEW PROJECT (Full Zip Restore with DB)${RESET}"
+    echo -e "${CYAN}5) 🚀 INSTALL NEW PROJECT (Auto DB Detect & Restore)${RESET}"
     echo -e "${CYAN}6) 💾 BACKUP A SPECIFIC PROJECT (To GDrive)${RESET}"
     echo -e "${RED}7) 🗑️  DELETE A PROJECT (Remove Website)${RESET}"
     echo -e "${YELLOW}8) ⚙️  INSTALL & SETUP RCLONE (Auto)${RESET}"
@@ -31,8 +31,8 @@ while true; do
     echo -e "${MAGENTA}12) 🔑 CHANGE WEB ADMIN PASSWORD (Live)${RESET}"
     echo -e "${YELLOW}13) 📝 FILE EXPLORER & EDITOR (Live Code Edit)${RESET}"
     echo -e "${CYAN}14) 🗄️  MYSQL DB MANAGER (Tree View, Create & Drop)${RESET}"
-    echo -e "${MAGENTA}15) ☁️  AUTO DB RESTORE FROM GDRIVE (Fixes Root/User Error)${RESET}"
-    echo -e "${GREEN}16) 🕵️‍♂️  DB CREDENTIAL FINDER (Smart Auto Search)${RESET}"
+    echo -e "${MAGENTA}15) ☁️  AUTO DB RESTORE (Fresh OR Merge/Update)${RESET}"
+    echo -e "${GREEN}16) 🕵️‍♂️  DB CREDENTIAL FINDER & EDITOR (Smart Search)${RESET}"
     echo -e "${RED}0) ❌ EXIT${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
     read -p "Select an option [0-16]: " choice
@@ -90,7 +90,7 @@ EOF
             ;;
         
         5)
-            echo -e "\n${YELLOW}[*] INSTALL NEW PROJECT AUTO (With DB Magic Fix)${RESET}"
+            echo -e "\n${YELLOW}[*] INSTALL NEW PROJECT AUTO (With DB Auto-Detect)${RESET}"
             read -p "Enter Google Drive Share Link (ZIP File): " LINK
             FILE_ID=$(echo "$LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
             if [ -n "$FILE_ID" ]; then
@@ -102,13 +102,58 @@ EOF
                 sudo unzip -o /tmp/temp_proj.zip -d /var/www/html/$NEW_DIR
                 sudo rm /tmp/temp_proj.zip
                 
+                # MAGIC: AUTO DETECT DB NAME BEFORE IMPORT
                 if [ -f "/var/www/html/$NEW_DIR/database_backup.sql" ]; then
-                    echo -e "${YELLOW}[*] Database found! Applying 'DEFINER' fix and Restoring...${RESET}"
-                    sudo sed -i 's/DEFINER=[^*]*\*/\*/g' "/var/www/html/$NEW_DIR/database_backup.sql"
-                    sudo sed -i 's/DEFINER=[^ ]* //g' "/var/www/html/$NEW_DIR/database_backup.sql"
-                    sudo mysql < "/var/www/html/$NEW_DIR/database_backup.sql"
-                    sudo rm "/var/www/html/$NEW_DIR/database_backup.sql"
-                    echo -e "${GREEN}[+] Database Restored Successfully!${RESET}"
+                    echo -e "\n${YELLOW}[*] SQL Database file found! Scanning code for configured Database Name...${RESET}"
+                    
+                    DETECTED_DB=""
+                    FOUND_FILES=$(find /var/www/html/$NEW_DIR -type f \( -name "*.php" -o -name "*.env" \) 2>/dev/null)
+                    if [ -n "$FOUND_FILES" ]; then
+                        while IFS= read -r FILE; do
+                            TEMP_DB=$(grep -iP '^\s*\$(dbname|db_name|database|db)\s*=\s*' "$FILE" | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | grep -v "^$" | tail -1)
+                            [ -z "$TEMP_DB" ] && TEMP_DB=$(grep -iP "define\s*\(\s*[\"']DB_NAME[\"']" "$FILE" | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | tail -1)
+                            [ -z "$TEMP_DB" ] && TEMP_DB=$(grep -iE "^DB_NAME\s*=|^DB_DATABASE\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
+                            
+                            if [ -z "$TEMP_DB" ]; then
+                                MYSQLI_LINE=$(grep -iP 'new\s+mysqli\s*\(' "$FILE" | grep -v '\$' | head -1)
+                                if [ -n "$MYSQLI_LINE" ]; then
+                                    ARGS=$(echo "$MYSQLI_LINE" | grep -oP "(?<=mysqli\()[^)]+")
+                                    TEMP_DB=$(echo "$ARGS" | awk -F',' '{print $4}' | tr -d ' "'"'"'')
+                                fi
+                            fi
+
+                            if [ -n "$TEMP_DB" ]; then
+                                DETECTED_DB="$TEMP_DB"
+                                break
+                            fi
+                        done <<< "$FOUND_FILES"
+                    fi
+
+                    if [ -n "$DETECTED_DB" ]; then
+                        echo -e "${GREEN}[+] Detective found a Database Name in your code: ${CYAN}$DETECTED_DB${RESET}"
+                        read -p "Press Enter to use '$DETECTED_DB' OR type a new name: " NEW_DB_NAME
+                        [ -z "$NEW_DB_NAME" ] && NEW_DB_NAME="$DETECTED_DB"
+                    else
+                        read -p "Could not auto-detect. Enter a Database Name for this project: " NEW_DB_NAME
+                    fi
+                    
+                    echo -e "${GREEN}[*] Creating Database '$NEW_DB_NAME' & Applying 'DEFINER' fix...${RESET}"
+                    sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`$NEW_DB_NAME\`;"
+                    sudo mysql -e "GRANT ALL PRIVILEGES ON \`$NEW_DB_NAME\`.* TO 'admin'@'localhost'; FLUSH PRIVILEGES;"
+                    
+                    sudo sed -i '/^\/\*/s/DEFINER=[^*]*\*/\*/g' "/var/www/html/$NEW_DIR/database_backup.sql"
+                    sudo sed -i '/^CREATE/s/DEFINER=[^ ]* //g' "/var/www/html/$NEW_DIR/database_backup.sql"
+                    sudo sed -i '/^CREATE/s/DEFINER=\`[^\`]*\`@\`[^\`]*\` //g' "/var/www/html/$NEW_DIR/database_backup.sql"
+                    
+                    echo -e "${GREEN}[*] Restoring Database...${RESET}"
+                    sudo mysql "$NEW_DB_NAME" < "/var/www/html/$NEW_DIR/database_backup.sql"
+                    
+                    if [ $? -eq 0 ]; then
+                        echo -e "${GREEN}[+] Database '$NEW_DB_NAME' Restored Successfully!${RESET}"
+                        sudo rm "/var/www/html/$NEW_DIR/database_backup.sql"
+                    else
+                        echo -e "${RED}[-] Error restoring database. Check your SQL file.${RESET}"
+                    fi
                 fi
 
                 sudo chown -R www-data:www-data /var/www/html/$NEW_DIR
@@ -307,7 +352,7 @@ EOF
             ;;
 
         15)
-            echo -e "\n${MAGENTA}[*] ☁️ AUTO DB RESTORE FROM GDRIVE (VPS/Local Fix)${RESET}"
+            echo -e "\n${MAGENTA}[*] ☁️ AUTO DB RESTORE (Fresh OR Merge/Update)${RESET}"
             read -p "Enter GDrive Share Link of your SQL file: " LINK
             FILE_ID=$(echo "$LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
             if [ -z "$FILE_ID" ]; then
@@ -322,15 +367,29 @@ EOF
                 sudo sed -i '/^CREATE/s/DEFINER=[^ ]* //g' /tmp/downloaded_db.sql
                 sudo sed -i '/^CREATE/s/DEFINER=\`[^\`]*\`@\`[^\`]*\` //g' /tmp/downloaded_db.sql
                 
-                echo -e "${GREEN}[*] Creating Database & Importing...${RESET}"
+                echo -e "${GREEN}[*] Creating Database (If not exists)...${RESET}"
                 sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`$TARGET_DB\`;"
                 sudo mysql -e "GRANT ALL PRIVILEGES ON \`$TARGET_DB\`.* TO 'admin'@'localhost'; FLUSH PRIVILEGES;"
-                sudo mysql "$TARGET_DB" < /tmp/downloaded_db.sql
                 
-                if [ $? -eq 0 ]; then
-                    echo -e "${GREEN}[+] Database Successfully Restored to '$TARGET_DB'!${RESET}"
+                echo -e "${CYAN}-----------------------------------------------------${RESET}"
+                echo -e "${MAGENTA}Select Restore Mode:${RESET}"
+                echo -e "${GREEN}1) 🟢 Fresh Restore (Standard, strict error checking)${RESET}"
+                echo -e "${YELLOW}2) 🟡 Update/Merge Mode (Forces import, skips existing tables & duplicate data)${RESET}"
+                echo -e "${CYAN}-----------------------------------------------------${RESET}"
+                read -p "Choose Mode [1-2]: " RESTORE_MODE
+
+                if [ "$RESTORE_MODE" == "2" ]; then
+                    echo -e "${YELLOW}[*] Merging DB with --force... (Ignoring existing table errors)${RESET}"
+                    sudo mysql --force "$TARGET_DB" < /tmp/downloaded_db.sql 2>/dev/null
+                    echo -e "${GREEN}[+] Database Successfully Merged to '$TARGET_DB'!${RESET}"
                 else
-                    echo -e "${RED}[-] Error during import! Please check line number in error.${RESET}"
+                    echo -e "${GREEN}[*] Importing DB normally...${RESET}"
+                    sudo mysql "$TARGET_DB" < /tmp/downloaded_db.sql
+                    if [ $? -eq 0 ]; then
+                        echo -e "${GREEN}[+] Database Successfully Restored to '$TARGET_DB'!${RESET}"
+                    else
+                        echo -e "${RED}[-] Error during import! Please check your file or use Merge Mode.${RESET}"
+                    fi
                 fi
                 sudo rm /tmp/downloaded_db.sql
             fi
@@ -338,7 +397,7 @@ EOF
             ;;
 
         16)
-            echo -e "\n${YELLOW}[*] 🕵️‍♂️ DB CREDENTIAL FINDER (Smart Auto Search)${RESET}"
+            echo -e "\n${YELLOW}[*] 🕵️‍♂️ DB CREDENTIAL FINDER & EDITOR${RESET}"
             ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null
             read -p "Enter project folder name to search (e.g. school): " PROJ_DIR
 
@@ -349,7 +408,6 @@ EOF
             fi
 
             echo -e "${GREEN}[*] Deep Scanning project: $PROJ_DIR ...${RESET}\n"
-
             FOUND_FILES=$(find /var/www/html/$PROJ_DIR -type f \( -name "*.php" -o -name "*.env" \) 2>/dev/null)
 
             if [ -z "$FOUND_FILES" ]; then
@@ -359,25 +417,17 @@ EOF
             fi
 
             SHOWN=0
-
             while IFS= read -r FILE; do
-
                 DB_HOST=""
                 DB_USER=""
                 DB_PASS=""
                 DB_NAME=""
 
-                # ── PATTERN 1: $servername / $host = "value" ──
-                [ -z "$DB_HOST" ] && DB_HOST=$(grep -iP '^\s*\$(servername|db_host|dbhost|host)\s*=\s*' "$FILE" \
-                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | grep -v "^$" | tail -1)
-                [ -z "$DB_USER" ] && DB_USER=$(grep -iP '^\s*\$(username|db_user|dbuser|user)\s*=\s*' "$FILE" \
-                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | grep -v "^$" | tail -1)
-                [ -z "$DB_PASS" ] && DB_PASS=$(grep -iP '^\s*\$(password|db_pass|dbpass|pass)\s*=\s*' "$FILE" \
-                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | grep -v "^$" | tail -1)
-                [ -z "$DB_NAME" ] && DB_NAME=$(grep -iP '^\s*\$(dbname|db_name|database|db)\s*=\s*' "$FILE" \
-                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | grep -v "^$" | tail -1)
+                [ -z "$DB_HOST" ] && DB_HOST=$(grep -iP '^\s*\$(servername|db_host|dbhost|host)\s*=\s*' "$FILE" | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | grep -v "^$" | tail -1)
+                [ -z "$DB_USER" ] && DB_USER=$(grep -iP '^\s*\$(username|db_user|dbuser|user)\s*=\s*' "$FILE" | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | grep -v "^$" | tail -1)
+                [ -z "$DB_PASS" ] && DB_PASS=$(grep -iP '^\s*\$(password|db_pass|dbpass|pass)\s*=\s*' "$FILE" | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | grep -v "^$" | tail -1)
+                [ -z "$DB_NAME" ] && DB_NAME=$(grep -iP '^\s*\$(dbname|db_name|database|db)\s*=\s*' "$FILE" | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | grep -v "^$" | tail -1)
 
-                # ── PATTERN 2: new mysqli("host","user","pass","db") inline ──
                 MYSQLI_LINE=$(grep -iP 'new\s+mysqli\s*\(' "$FILE" | grep -v '\$' | head -1)
                 if [ -n "$MYSQLI_LINE" ]; then
                     ARGS=$(echo "$MYSQLI_LINE" | grep -oP "(?<=mysqli\()[^)]+")
@@ -387,71 +437,53 @@ EOF
                     [ -z "$DB_NAME" ] && DB_NAME=$(echo "$ARGS" | awk -F',' '{print $4}' | tr -d ' "'"'"'')
                 fi
 
-                # ── PATTERN 3: define('DB_HOST','value') WordPress style ──
-                [ -z "$DB_HOST" ] && DB_HOST=$(grep -iP "define\s*\(\s*[\"']DB_HOST[\"']" "$FILE" \
-                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | tail -1)
-                [ -z "$DB_USER" ] && DB_USER=$(grep -iP "define\s*\(\s*[\"']DB_USER[\"']" "$FILE" \
-                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | tail -1)
-                [ -z "$DB_PASS" ] && DB_PASS=$(grep -iP "define\s*\(\s*[\"']DB_PASSWORD[\"']" "$FILE" \
-                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | tail -1)
-                [ -z "$DB_NAME" ] && DB_NAME=$(grep -iP "define\s*\(\s*[\"']DB_NAME[\"']" "$FILE" \
-                    | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | tail -1)
+                [ -z "$DB_HOST" ] && DB_HOST=$(grep -iP "define\s*\(\s*[\"']DB_HOST[\"']" "$FILE" | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | tail -1)
+                [ -z "$DB_USER" ] && DB_USER=$(grep -iP "define\s*\(\s*[\"']DB_USER[\"']" "$FILE" | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | tail -1)
+                [ -z "$DB_PASS" ] && DB_PASS=$(grep -iP "define\s*\(\s*[\"']DB_PASSWORD[\"']" "$FILE" | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | tail -1)
+                [ -z "$DB_NAME" ] && DB_NAME=$(grep -iP "define\s*\(\s*[\"']DB_NAME[\"']" "$FILE" | grep -oP "(?<=[\"'])[^\"']+(?=[\"'])" | tail -1)
 
-                # ── PATTERN 4: ENV style DB_HOST=value ──
                 [ -z "$DB_HOST" ] && DB_HOST=$(grep -iE "^DB_HOST\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
                 [ -z "$DB_USER" ] && DB_USER=$(grep -iE "^DB_USERNAME\s*=|^DB_USER\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
                 [ -z "$DB_PASS" ] && DB_PASS=$(grep -iE "^DB_PASSWORD\s*=|^DB_PASS\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
                 [ -z "$DB_NAME" ] && DB_NAME=$(grep -iE "^DB_NAME\s*=|^DB_DATABASE\s*=" "$FILE" | cut -d'=' -f2 | tr -d "\"' " | tail -1)
 
-                # অন্তত একটা value পেলেই দেখাও
                 if [ -n "$DB_HOST" ] || [ -n "$DB_USER" ] || [ -n "$DB_PASS" ] || [ -n "$DB_NAME" ]; then
                     SHOWN=$((SHOWN+1))
                     SHORT_FILE="${FILE#/var/www/html/$PROJ_DIR/}"
-
                     echo -e "${MAGENTA}📄 Config File : ${CYAN}$SHORT_FILE${RESET}"
                     echo -e "${BLUE}=====================================================${RESET}"
-                    if [ -n "$DB_HOST" ]; then
-                        echo -e "  🌐 Host      : ${GREEN}$DB_HOST${RESET}"
-                    else
-                        echo -e "  🌐 Host      : ${RED}Not Found${RESET}"
-                    fi
-                    if [ -n "$DB_NAME" ]; then
-                        echo -e "  🗄️  Database  : ${GREEN}$DB_NAME${RESET}"
-                    else
-                        echo -e "  🗄️  Database  : ${RED}Not Found${RESET}"
-                    fi
-                    if [ -n "$DB_USER" ]; then
-                        echo -e "  👤 Username  : ${GREEN}$DB_USER${RESET}"
-                    else
-                        echo -e "  👤 Username  : ${RED}Not Found${RESET}"
-                    fi
-                    if [ -n "$DB_PASS" ]; then
-                        echo -e "  🔑 Password  : ${GREEN}$DB_PASS${RESET}"
-                    else
-                        echo -e "  🔑 Password  : ${RED}Not Found${RESET}"
-                    fi
+                    [ -n "$DB_HOST" ] && echo -e "  🌐 Host      : ${GREEN}$DB_HOST${RESET}" || echo -e "  🌐 Host      : ${RED}Not Found${RESET}"
+                    [ -n "$DB_NAME" ] && echo -e "  🗄️  Database  : ${GREEN}$DB_NAME${RESET}" || echo -e "  🗄️  Database  : ${RED}Not Found${RESET}"
+                    [ -n "$DB_USER" ] && echo -e "  👤 Username  : ${GREEN}$DB_USER${RESET}" || echo -e "  👤 Username  : ${RED}Not Found${RESET}"
+                    [ -n "$DB_PASS" ] && echo -e "  🔑 Password  : ${GREEN}$DB_PASS${RESET}" || echo -e "  🔑 Password  : ${RED}Not Found${RESET}"
                     echo -e "${BLUE}-----------------------------------------------------${RESET}"
-
-                    # Live connection test
                     if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ] && [ -n "$DB_NAME" ]; then
                         echo -e "  🔌 Testing Live DB Connection..."
                         if sudo mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e ";" 2>/dev/null; then
-                            echo -e "  ✅ ${GREEN}Connection SUCCESS! DB is LIVE & Working.${RESET}"
+                            echo -e "  ✅ ${GREEN}Connection SUCCESS! DB is LIVE.${RESET}"
                         else
-                            echo -e "  ❌ ${RED}Connection FAILED! Credentials may be wrong.${RESET}"
+                            echo -e "  ❌ ${RED}Connection FAILED!${RESET}"
                         fi
                     fi
                     echo -e "${BLUE}=====================================================${RESET}\n"
                 fi
-
             done <<< "$FOUND_FILES"
 
             if [ "$SHOWN" -eq 0 ]; then
-                echo -e "${RED}[-] Files scanned but no DB credentials could be extracted.${RESET}"
-                echo -e "${YELLOW}[!] Tip: Manually check your config file:${RESET}"
-                echo -e "${CYAN}    cat /var/www/html/$PROJ_DIR/db_connect.php${RESET}"
+                echo -e "${RED}[-] No credentials found.${RESET}"
             else
-                echo -e "${GREEN}[+] Total $SHOWN config file(s) found with credentials.${RESET}"
+                echo -e "${GREEN}[+] Total $SHOWN config file(s) found.${RESET}"
+                echo -e "\n${YELLOW}Do you want to EDIT any of these files to update passwords?${RESET}"
+                read -p "Type 'y' to open editor, or 'n' to go back: " EDIT_CONFIRM
+                if [[ "$EDIT_CONFIRM" == "y" || "$EDIT_CONFIRM" == "Y" ]]; then
+                    read -p "Copy and Paste the EXACT File path from above (e.g. includes/db.php): " FILE_TO_EDIT
+                    if [ -f "/var/www/html/$PROJ_DIR/$FILE_TO_EDIT" ]; then
+                        nano "/var/www/html/$PROJ_DIR/$FILE_TO_EDIT"
+                        echo -e "${GREEN}[+] File Saved Successfully!${RESET}"
+                    else
+                        echo -e "${RED}[-] File not found. Make sure you typed the exact name.${RESET}"
+                    fi
+                fi
             fi
             read -p "Press Enter to return..."
             ;;
