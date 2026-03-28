@@ -318,37 +318,102 @@ EOF
             ;;
 
         14)
-            echo -e "\n${YELLOW}[*] 🗄️ MYSQL DB MANAGER (Tree View)${RESET}"
-            echo -e "${CYAN}Available Databases & Tables:${RESET}"
-            DBS=$(sudo mysql -N -e "SHOW DATABASES" | grep -vE '^(information_schema|performance_schema|mysql|sys)$')
-            if [ -z "$DBS" ]; then
-                echo -e "${RED}No custom databases found.${RESET}"
-            else
+            while true; do
+                clear
+                echo -e "\n${YELLOW}=====================================================${RESET}"
+                echo -e "${MAGENTA}[*] 🗄️ MYSQL DB MANAGER (Smart Interactive View)${RESET}"
+                echo -e "${YELLOW}=====================================================${RESET}"
+                
+                DBS=$(sudo mysql -N -e "SHOW DATABASES" | grep -vE '^(information_schema|performance_schema|mysql|sys)$')
+                if [ -z "$DBS" ]; then
+                    echo -e "${RED}No custom databases found.${RESET}"
+                    read -p "Press Enter to return..."
+                    break
+                fi
+                
+                declare -a TABLE_LIST
+                declare -a DB_LIST_FOR_TABLE
+                COUNTER=1
+                
+                echo -e "${CYAN}Available Databases & Tables:${RESET}"
                 for db in $DBS; do
                     echo -e "📂 ${GREEN}$db${RESET}"
                     TABLES=$(sudo mysql -N -e "SHOW TABLES IN \`$db\`;")
-                    for tb in $TABLES; do echo -e "   ├── 📄 $tb"; done
+                    if [ -z "$TABLES" ]; then
+                        echo -e "   └── ${RED}(No tables found)${RESET}"
+                    else
+                        for tb in $TABLES; do
+                            echo -e "   ├── ${YELLOW}[$COUNTER]${RESET} 📄 $tb"
+                            TABLE_LIST[$COUNTER]="$tb"
+                            DB_LIST_FOR_TABLE[$COUNTER]="$db"
+                            COUNTER=$((COUNTER+1))
+                        done
+                    fi
                 done
-            fi
-            echo -e "${BLUE}-----------------------------------------------------${RESET}"
-            echo -e "${CYAN}1) ➕ Create New Database${RESET}"
-            echo -e "${RED}2) 🗑️  Drop/Delete a Database${RESET}"
-            echo -e "${RED}0) 🔙 Go Back${RESET}"
-            read -p "Choice [0-2]: " DB_CH
-            if [ "$DB_CH" == "1" ]; then
-                read -p "Enter new database name: " NEW_DB
-                sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`$NEW_DB\`;"
-                sudo mysql -e "GRANT ALL PRIVILEGES ON \`$NEW_DB\`.* TO 'admin'@'localhost'; FLUSH PRIVILEGES;"
-                echo -e "${GREEN}[+] Database '$NEW_DB' created successfully!${RESET}"
-            elif [ "$DB_CH" == "2" ]; then
-                read -p "Enter database name to DELETE: " DEL_DB
-                read -p "Type 'YES' to confirm: " CONFIRM
-                if [ "$CONFIRM" == "YES" ]; then
-                    sudo mysql -e "DROP DATABASE IF EXISTS \`$DEL_DB\`;"
-                    echo -e "${GREEN}[+] Database '$DEL_DB' deleted!${RESET}"
+                
+                echo -e "${BLUE}-----------------------------------------------------${RESET}"
+                echo -e "${CYAN}N) ➕ Create New Database${RESET}"
+                echo -e "${RED}D) 🗑️  Drop/Delete a Database${RESET}"
+                echo -e "${YELLOW}👉 Type a ${GREEN}Table Number [1-$((COUNTER-1))]${YELLOW} to Manage it (Add Column/Rename)${RESET}"
+                echo -e "${RED}0) 🔙 Go Back to Main Menu${RESET}"
+                read -p "Enter Choice: " DB_CH
+                
+                if [[ "$DB_CH" == "0" ]]; then
+                    break
+                elif [[ "$DB_CH" == "N" || "$DB_CH" == "n" ]]; then
+                    read -p "Enter new database name: " NEW_DB
+                    sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`$NEW_DB\`;"
+                    sudo mysql -e "GRANT ALL PRIVILEGES ON \`$NEW_DB\`.* TO 'admin'@'localhost'; FLUSH PRIVILEGES;"
+                    echo -e "${GREEN}[+] Database '$NEW_DB' created successfully!${RESET}"
+                    read -p "Press Enter to continue..."
+                elif [[ "$DB_CH" == "D" || "$DB_CH" == "d" ]]; then
+                    read -p "Enter database name to DELETE: " DEL_DB
+                    read -p "Type 'YES' to confirm: " CONFIRM
+                    if [ "$CONFIRM" == "YES" ]; then
+                        sudo mysql -e "DROP DATABASE IF EXISTS \`$DEL_DB\`;"
+                        echo -e "${GREEN}[+] Database '$DEL_DB' deleted!${RESET}"
+                    fi
+                    read -p "Press Enter to continue..."
+                elif [[ "$DB_CH" =~ ^[0-9]+$ ]] && [[ "$DB_CH" -gt 0 && "$DB_CH" -lt "$COUNTER" ]]; then
+                    TARGET_DB="${DB_LIST_FOR_TABLE[$DB_CH]}"
+                    TARGET_TABLE="${TABLE_LIST[$DB_CH]}"
+                    
+                    echo -e "\n${MAGENTA}⚙️  Managing Table: ${CYAN}$TARGET_DB.$TARGET_TABLE${RESET}"
+                    echo -e "${CYAN}1) ➕ Add a New Column (VARCHAR)${RESET}"
+                    echo -e "${YELLOW}2) ✏️  Rename this Table${RESET}"
+                    echo -e "${RED}3) 🗑️  Delete (Drop) this Table${RESET}"
+                    echo -e "${BLUE}0) 🔙 Cancel${RESET}"
+                    read -p "Select Action [0-3]: " TBL_ACT
+                    
+                    case $TBL_ACT in
+                        1)
+                            read -p "Enter NEW COLUMN NAME (e.g. photo, status): " NEW_COL
+                            if [ -n "$NEW_COL" ]; then
+                                sudo mysql -e "ALTER TABLE \`$TARGET_DB\`.\`$TARGET_TABLE\` ADD \`$NEW_COL\` VARCHAR(255) NULL;"
+                                echo -e "${GREEN}[+] Magic Done! Column '$NEW_COL' added successfully to $TARGET_TABLE!${RESET}"
+                            fi
+                            ;;
+                        2)
+                            read -p "Enter NEW TABLE NAME: " NEW_TB_NAME
+                            if [ -n "$NEW_TB_NAME" ]; then
+                                sudo mysql -e "RENAME TABLE \`$TARGET_DB\`.\`$TARGET_TABLE\` TO \`$TARGET_DB\`.\`$NEW_TB_NAME\`;"
+                                echo -e "${GREEN}[+] Table renamed to '$NEW_TB_NAME'!${RESET}"
+                            fi
+                            ;;
+                        3)
+                            read -p "Type 'YES' to DROP table '$TARGET_TABLE': " CONFIRM_TB
+                            if [ "$CONFIRM_TB" == "YES" ]; then
+                                sudo mysql -e "DROP TABLE \`$TARGET_DB\`.\`$TARGET_TABLE\`;"
+                                echo -e "${GREEN}[+] Table '$TARGET_TABLE' deleted!${RESET}"
+                            fi
+                            ;;
+                    esac
+                    read -p "Press Enter to continue..."
+                else
+                    echo -e "${RED}Invalid Option!${RESET}"
+                    sleep 1
                 fi
-            fi
-            read -p "Press Enter to return..."
+            done
             ;;
 
         15)
