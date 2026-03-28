@@ -1,263 +1,66 @@
 #!/bin/bash
 
-# ╔══════════════════════════════════════════════════════════════╗
-# ║         SERVER MANAGEMENT MASTER TOOL V3.7                  ║
-# ║                  MADE BY PRODIP                             ║
-# ╚══════════════════════════════════════════════════════════════╝
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  COLOR PALETTE & DYNAMIC PATHS (DUAL MODE)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Colors for design
+GREEN="\e[32m"
+RED="\e[31m"
+BLUE="\e[34m"
+YELLOW="\e[33m"
+CYAN="\e[36m"
+MAGENTA="\e[35m"
 RESET="\e[0m"
-BOLD="\e[1m"
-DIM="\e[2m"
-
-BLACK="\e[30m"
-RED="\e[91m"
-GREEN="\e[92m"
-YELLOW="\e[93m"
-BLUE="\e[94m"
-MAGENTA="\e[95m"
-CYAN="\e[96m"
-WHITE="\e[97m"
-
-# Auto Detect Environment (VPS Root vs Local User)
-USER_HOME=$HOME
-TEMP_DIR="/tmp"
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  HELPER FUNCTIONS
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-draw_line() {
-    echo -e "${DIM}${BLUE}    ─────────────────────────────────────────────────────────${RESET}"
-}
-
-draw_double_line() {
-    echo -e "${BOLD}${CYAN}    ═════════════════════════════════════════════════════════${RESET}"
-}
-
-draw_thin_line() {
-    echo -e "${DIM}${WHITE}    ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄${RESET}"
-}
-
-print_gap() {
-    echo ""
-}
-
-section_header() {
-    local TITLE="$1"
-    local COLOR="${2:-$CYAN}"
-    print_gap
-    echo -e "    ${COLOR}${BOLD}┌─ ${TITLE} ${RESET}"
-    draw_thin_line
-}
-
-menu_item() {
-    local NUM="$1"
-    local ICON="$2"
-    local TEXT="$3"
-    local COLOR="${4:-$CYAN}"
-    printf "    ${COLOR}${BOLD}  %-2s${RESET}  ${WHITE}%s  ${COLOR}%s${RESET}\n" "$NUM" "$ICON" "$TEXT"
-}
-
-success_msg() {
-    print_gap
-    echo -e "    ${GREEN}${BOLD}  ✔  $1${RESET}"
-    print_gap
-}
-
-error_msg() {
-    print_gap
-    echo -e "    ${RED}${BOLD}  ✘  $1${RESET}"
-    print_gap
-}
-
-info_msg() {
-    echo -e "    ${YELLOW}  ➜  $1${RESET}"
-}
-
-warn_msg() {
-    print_gap
-    echo -e "    ${YELLOW}${BOLD}  ⚠  $1${RESET}"
-    print_gap
-}
-
-step_msg() {
-    echo -e "    ${BLUE}  ◈  $1${RESET}"
-}
-
-prompt_input() {
-    print_gap
-    echo -ne "    ${CYAN}${BOLD}  ❯  ${WHITE}$1 : ${RESET}"
-    read -r "$2"
-}
-
-press_enter() {
-    print_gap
-    draw_line
-    echo -ne "    ${DIM}${WHITE}  Press ${BOLD}[ENTER]${RESET}${DIM}${WHITE} to return to menu...${RESET}"
-    read
-}
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  MAIN MENU FUNCTION
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-show_menu() {
-    clear
-
-    print_gap
-    print_gap
-    echo -e "${BOLD}${CYAN}    ╔═════════════════════════════════════════════════════════╗${RESET}"
-    echo -e "${BOLD}${CYAN}    ║${RESET}${BOLD}${YELLOW}            ✦  SERVER MANAGEMENT MASTER TOOL  ✦            ${RESET}${BOLD}${CYAN}║${RESET}"
-    echo -e "${BOLD}${CYAN}    ║${RESET}${DIM}${WHITE}                 V 3.7  ·   MADE BY PRODIP                ${RESET}${BOLD}${CYAN}║${RESET}"
-    echo -e "${BOLD}${CYAN}    ╚═════════════════════════════════════════════════════════╝${RESET}"
-    print_gap
-
-    # ── SETUP GROUP ──────────────────────────────────────────────
-    section_header "SETUP & CONFIGURATION" "$MAGENTA"
-    print_gap
-    menu_item " 1" "🛠 " " Initial Setup          " "$GREEN"
-    echo -e "    ${DIM}${WHITE}        Install Apache · PHP · MySQL${RESET}"
-    print_gap
-    menu_item " 2" "🌐" " Setup Domain            " "$GREEN"
-    echo -e "    ${DIM}${WHITE}        Link a domain to a project folder${RESET}"
-    print_gap
-    menu_item "11" "🔒" " Auto SSL (HTTPS)        " "$GREEN"
-    echo -e "    ${DIM}${WHITE}        Install Certbot · Secure with HTTPS${RESET}"
-    print_gap
-
-    draw_line
-
-    # ── DB MIGRATION GROUP ─────────────────────────────────────────
-    section_header "DATABASE MIGRATION (1-CLICK)" "$YELLOW"
-    print_gap
-    menu_item "14" "📤" " Smart Export All DBs    " "$YELLOW"
-    echo -e "    ${DIM}${WHITE}        Backup all DBs & Auto-Upload to Google Drive${RESET}"
-    print_gap
-    menu_item "15" "📥" " Smart Import All DBs    " "$MAGENTA"
-    echo -e "    ${DIM}${WHITE}        Auto-download from Drive & Import Database${RESET}"
-    print_gap
-
-    draw_line
-
-    # ── PROJECT GROUP ─────────────────────────────────────────────
-    section_header "PROJECT MANAGEMENT" "$CYAN"
-    print_gap
-    menu_item " 4" "📂" " Show All Projects       " "$CYAN"
-    echo -e "    ${DIM}${WHITE}        List all running websites${RESET}"
-    print_gap
-    menu_item " 5" "🚀" " Install New Project     " "$CYAN"
-    echo -e "    ${DIM}${WHITE}        Download & deploy from Google Drive${RESET}"
-    print_gap
-    menu_item " 7" "🗑 " " Delete a Project        " "$RED"
-    echo -e "    ${DIM}${WHITE}        Permanently remove a website${RESET}"
-    print_gap
-    menu_item "13" "🔍" " Explore & Edit Files    " "$CYAN"
-    echo -e "    ${DIM}${WHITE}        Browse PHP files · Open in Nano editor${RESET}"
-    print_gap
-    menu_item "12" "🔑" " Change Admin Password   " "$MAGENTA"
-    echo -e "    ${DIM}${WHITE}        Update & hash web admin passwords${RESET}"
-    print_gap
-
-    draw_line
-
-    # ── BACKUP GROUP ──────────────────────────────────────────────
-    section_header "BACKUP & STORAGE" "$YELLOW"
-    print_gap
-    menu_item " 6" "💾" " Backup Project          " "$YELLOW"
-    echo -e "    ${DIM}${WHITE}        Zip & upload project to Google Drive${RESET}"
-    print_gap
-    menu_item " 8" "⚙ " " Install & Setup Rclone  " "$YELLOW"
-    echo -e "    ${DIM}${WHITE}        Configure rclone for GDrive access${RESET}"
-    print_gap
-    menu_item "10" "⏰" " Set Auto Nightly Backup " "$YELLOW"
-    echo -e "    ${DIM}${WHITE}        Schedule daily backup at 11:00 PM${RESET}"
-    print_gap
-
-    draw_line
-
-    # ── MONITOR GROUP ─────────────────────────────────────────────
-    section_header "MONITORING & SECURITY" "$BLUE"
-    print_gap
-    menu_item " 3" "📊" " Server Health Check     " "$BLUE"
-    echo -e "    ${DIM}${WHITE}        Live status of Apache · MySQL · UFW${RESET}"
-    print_gap
-    menu_item " 9" "🛡 " " Add Security            " "$BLUE"
-    echo -e "    ${DIM}${WHITE}        Auto update · Fail2Ban · Firewall${RESET}"
-    print_gap
-
-    draw_double_line
-
-    # ── EXIT ──────────────────────────────────────────────────────
-    menu_item " 0" "❌" " Exit                    " "$RED"
-    print_gap
-    draw_double_line
-
-    print_gap
-    echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Select an option ${DIM}[0-15]${RESET}${BOLD}${WHITE} : ${RESET}"
-    read -r choice
-}
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  MAIN LOOP
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 while true; do
-    show_menu
+    clear
+    echo -e "${YELLOW}=====================================================${RESET}"
+    echo -e "${MAGENTA}                 👑 MADE BY PRODIP 👑                ${RESET}"
+    echo -e "${YELLOW}=====================================================${RESET}"
+    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.2 🌟      ${RESET}"
+    echo -e "${BLUE}=====================================================${RESET}"
+    echo -e "${CYAN}1) 🛠️  INITIAL SETUP (Install Apache, PHP, MySQL)${RESET}"
+    echo -e "${CYAN}2) 🌐 SETUP DOMAIN (Link Domain to a Project)${RESET}"
+    echo -e "${CYAN}3) 📊 SERVER HEALTH CHECK (Live Status)${RESET}"
+    echo -e "${BLUE}-----------------------------------------------------${RESET}"
+    echo -e "${CYAN}4) 📂 SHOW ALL PROJECTS (Running Websites)${RESET}"
+    echo -e "${CYAN}5) 🚀 INSTALL NEW PROJECT (From GDrive Link)${RESET}"
+    echo -e "${CYAN}6) 💾 BACKUP A SPECIFIC PROJECT (To GDrive)${RESET}"
+    echo -e "${RED}7) 🗑️  DELETE A PROJECT (Remove Website)${RESET}"
+    echo -e "${YELLOW}8) ⚙️  INSTALL & SETUP RCLONE (Auto)${RESET}"
+    echo -e "${CYAN}9) 🛡️  ADD SECURITY (Auto Update & Firewall)${RESET}"
+    echo -e "${YELLOW}10) ⏰ SET AUTO NIGHTLY BACKUP (11:00 PM)${RESET}"
+    echo -e "${GREEN}11) 🔒 AUTO SSL (HTTPS) SETUP (Certbot)${RESET}"
+    echo -e "${MAGENTA}12) 🔑 CHANGE WEB ADMIN PASSWORD (Live)${RESET}"
+    echo -e "${RED}0) ❌ EXIT${RESET}"
+    echo -e "${BLUE}=====================================================${RESET}"
+    read -p "Select an option [0-12]: " choice
 
     case $choice in
-
-        # ══════════════════════════════════════════════════════════
         1)
-            clear
-            print_gap
-            echo -e "${BOLD}${GREEN}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${GREEN}    ║          🛠   INITIAL SERVER SETUP                    ║${RESET}"
-            echo -e "${BOLD}${GREEN}    ╚═══════════════════════════════════════════════════════╝${RESET}"
-            print_gap
-
-            step_msg "Updating system packages..."
+            echo -e "\n${YELLOW}[*] INITIAL SERVER SETUP (Auto Install Packages)...${RESET}"
+            echo -e "${GREEN}[*] Updating system...${RESET}"
             sudo apt update -y && sudo apt upgrade -y
-
-            print_gap
-            step_msg "Installing Apache, MySQL, PHP and essential tools..."
+            echo -e "${GREEN}[*] Installing Apache, MySQL, PHP, and essential tools...${RESET}"
             sudo apt install apache2 mysql-server php libapache2-mod-php php-mysql zip unzip curl wget -y
-
-            print_gap
-            step_msg "Fixing MySQL permissions for admin user..."
+            
+            echo -e "${GREEN}[*] Fixing MySQL Database Permissions (For Admin User)...${RESET}"
             sudo mysql -e "CREATE USER IF NOT EXISTS 'admin'@'localhost' IDENTIFIED WITH mysql_native_password BY '12345'; GRANT ALL PRIVILEGES ON *.* TO 'admin'@'localhost' WITH GRANT OPTION; FLUSH PRIVILEGES;"
-
-            step_msg "Enabling Apache rewrite module..."
+            
             sudo a2enmod rewrite
             sudo systemctl restart apache2
-
-            success_msg "Setup Complete! Your server is ready for projects."
-            press_enter
+            echo -e "${GREEN}[+] Setup Complete! Your server is ready for projects.${RESET}"
+            read -p "Press Enter to return..."
             ;;
-
-        # ══════════════════════════════════════════════════════════
+            
         2)
-            clear
-            print_gap
-            echo -e "${BOLD}${GREEN}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${GREEN}    ║          🌐  SETUP DOMAIN                             ║${RESET}"
-            echo -e "${BOLD}${GREEN}    ╚═══════════════════════════════════════════════════════╝${RESET}"
-            print_gap
-
-            section_header "AVAILABLE PROJECTS" "$CYAN"
-            print_gap
-            ls -d /var/www/html/*/ 2>/dev/null | awk -F/ '{print "    \033[96m  ▸  \033[0m\033[97m" $(NF-1) "\033[0m"}' || error_msg "No projects found!"
-            print_gap
-
-            prompt_input "Enter project folder name (e.g. rainbow)" PROJ_DIR
-
+            echo -e "\n${YELLOW}[*] SETUP DOMAIN (Link Domain to Project)${RESET}"
+            echo "Available Projects:"
+            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null || echo "No projects found!"
+            read -p "Enter the project folder name (e.g. rainbow): " PROJ_DIR
+            
             if [ -d "/var/www/html/$PROJ_DIR" ]; then
-                prompt_input "Enter your Domain Name (e.g. example.com)" DOMAIN_NAME
+                read -p "Enter your Domain Name (e.g. example.com): " DOMAIN_NAME
                 CONF_FILE="/etc/apache2/sites-available/${DOMAIN_NAME}.conf"
-
-                step_msg "Creating VirtualHost config for ${DOMAIN_NAME}..."
+                
+                echo -e "${GREEN}[*] Creating VirtualHost configuration for ${DOMAIN_NAME}...${RESET}"
                 sudo bash -c "cat > $CONF_FILE" <<EOF
 <VirtualHost *:80>
     ServerName $DOMAIN_NAME
@@ -272,318 +75,219 @@ while true; do
 EOF
                 sudo a2ensite ${DOMAIN_NAME}.conf
                 sudo systemctl restart apache2
-                success_msg "Domain ${DOMAIN_NAME} linked to folder '${PROJ_DIR}' successfully!"
-                warn_msg "Make sure your DNS A Record is pointing to this VPS IP."
+                echo -e "${GREEN}[+] Domain ${DOMAIN_NAME} successfully linked to folder '${PROJ_DIR}'!${RESET}"
+                echo -e "${YELLOW}Note: Make sure your Domain's DNS (A Record) is pointing to this VPS IP.${RESET}"
             else
-                error_msg "Folder '$PROJ_DIR' not found! Create/install the project first."
+                echo -e "${RED}[-] Folder '$PROJ_DIR' not found! Please create/install project first.${RESET}"
             fi
-            press_enter
+            read -p "Press Enter to return..."
             ;;
-
-        # ══════════════════════════════════════════════════════════
+            
         3)
-            clear
-            print_gap
-            echo -e "${BOLD}${BLUE}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${BLUE}    ║          📊  SERVER HEALTH CHECK                      ║${RESET}"
-            echo -e "${BOLD}${BLUE}    ╚═══════════════════════════════════════════════════════╝${RESET}"
-            print_gap
-            section_header "SERVICE STATUS" "$BLUE"
-            print_gap
-            if systemctl is-active --quiet apache2; then echo -e "    ${BOLD}${WHITE}    🌐  Web Server (Apache)${RESET}    ${BOLD}${GREEN}● RUNNING${RESET}"; else echo -e "    ${BOLD}${WHITE}    🌐  Web Server (Apache)${RESET}    ${BOLD}${RED}● STOPPED${RESET}"; fi
-            if systemctl is-active --quiet mysql; then echo -e "    ${BOLD}${WHITE}    🗄  Database (MySQL)  ${RESET}    ${BOLD}${GREEN}● RUNNING${RESET}"; else echo -e "    ${BOLD}${WHITE}    🗄  Database (MySQL)  ${RESET}    ${BOLD}${RED}● STOPPED${RESET}"; fi
+            echo -e "\n${YELLOW}[*] SERVER HEALTH CHECK (Live Status)${RESET}"
+            if systemctl is-active --quiet apache2; then
+                echo -e "🌐 Web Server (Apache) : ${GREEN}🟢 RUNNING${RESET}"
+            else
+                echo -e "🌐 Web Server (Apache) : ${RED}🔴 STOPPED${RESET}"
+            fi
+            if systemctl is-active --quiet mysql; then
+                echo -e "🗄️  Database (MySQL)  : ${GREEN}🟢 RUNNING${RESET}"
+            else
+                echo -e "🗄️  Database (MySQL)  : ${RED}🔴 STOPPED${RESET}"
+            fi
             UFW_STATUS=$(sudo ufw status | grep -w "Status")
-            if [[ "$UFW_STATUS" == *"active"* ]]; then echo -e "    ${BOLD}${WHITE}    🛡  Firewall (UFW)    ${RESET}    ${BOLD}${GREEN}● ACTIVE${RESET}"; else echo -e "    ${BOLD}${WHITE}    🛡  Firewall (UFW)    ${RESET}    ${BOLD}${RED}● INACTIVE${RESET}"; fi
-            print_gap
-            draw_line
-            section_header "SYSTEM UPTIME" "$YELLOW"
-            print_gap
-            echo -e "    ${YELLOW}  ⏱  $(uptime -p)${RESET}"
-            print_gap
-            press_enter
+            if [[ "$UFW_STATUS" == *"active"* ]]; then
+                echo -e "🛡️  Firewall (UFW)    : ${GREEN}🟢 ACTIVE${RESET}"
+            else
+                echo -e "🛡️  Firewall (UFW)    : ${RED}🔴 INACTIVE${RESET}"
+            fi
+            echo -e "\n${YELLOW}System Uptime:${RESET}"
+            uptime -p
+            read -p "Press Enter to return..."
             ;;
 
-        # ══════════════════════════════════════════════════════════
         4)
-            clear
-            print_gap
-            echo -e "${BOLD}${CYAN}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${CYAN}    ║          📂  ALL PROJECTS                             ║${RESET}"
-            echo -e "${BOLD}${CYAN}    ╚═══════════════════════════════════════════════════════╝${RESET}"
-            print_gap
-            section_header "PROJECTS IN /var/www/html/" "$CYAN"
-            print_gap
-            ls -d /var/www/html/*/ 2>/dev/null | awk -F/ '{print "    \033[96m  ▸  \033[0m\033[97m" $(NF-1) "\033[0m"}' || error_msg "No projects found."
-            print_gap
-            press_enter
+            echo -e "\n${YELLOW}[*] Scanning Server for Projects...${RESET}"
+            echo -e "Found the following projects in /var/www/html/ :"
+            ls -d /var/www/html/*/ | awk -F/ '{print "👉 " $(NF-1)}' 2>/dev/null || echo "No projects found."
+            echo "-----------------------------------"
+            read -p "Press Enter to return to menu..."
             ;;
-
-        # ══════════════════════════════════════════════════════════
+        
         5)
-            clear
-            print_gap
-            echo -e "${BOLD}${GREEN}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${GREEN}    ║          🚀  INSTALL NEW PROJECT                      ║${RESET}"
-            echo -e "${BOLD}${GREEN}    ╚═══════════════════════════════════════════════════════╝${RESET}"
-            print_gap
-            prompt_input "Enter Google Drive Share Link" LINK
+            echo -e "\n${YELLOW}[*] INSTALL NEW PROJECT AUTO${RESET}"
+            read -p "Enter Google Drive Share Link: " LINK
             FILE_ID=$(echo "$LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
-            if [ -z "$FILE_ID" ]; then error_msg "Invalid Link!"; else
-                prompt_input "Enter NEW folder name (No spaces, e.g. rainbow)" NEW_DIR
+            
+            if [ -z "$FILE_ID" ]; then
+                echo -e "${RED}[-] Invalid Link! Could not extract ID.${RESET}"
+            else
+                read -p "Enter a NEW folder name for this project (No Spaces! e.g. rainbow): " NEW_DIR
                 NEW_DIR=$(echo "$NEW_DIR" | tr -d ' ')
-                if [ -d "/var/www/html/$NEW_DIR" ]; then error_msg "Folder '$NEW_DIR' already exists!"; else
-                    step_msg "Downloading & Extracting..."
+                
+                if [ -d "/var/www/html/$NEW_DIR" ]; then
+                    echo -e "${RED}[-] Warning: Folder '$NEW_DIR' already exists! Choose a different name.${RESET}"
+                else
+                    echo -e "${GREEN}[*] Downloading and Extracting cleanly...${RESET}"
                     sudo mkdir -p /var/www/html/$NEW_DIR
-                    sudo wget -qO $TEMP_DIR/temp.zip "https://drive.google.com/uc?export=download&id=$FILE_ID"
-                    sudo unzip -o $TEMP_DIR/temp.zip -d /var/www/html/$NEW_DIR
-                    sudo rm $TEMP_DIR/temp.zip
-                    if [ -f "/var/www/html/$NEW_DIR/database_backup.sql" ]; then sudo mysql < "/var/www/html/$NEW_DIR/database_backup.sql"; sudo rm "/var/www/html/$NEW_DIR/database_backup.sql"; info_msg "Database Restored Successfully!"; fi
-                    sudo chown -R www-data:www-data /var/www/html/$NEW_DIR; sudo chmod -R 755 /var/www/html/$NEW_DIR
-                    success_msg "Project Installed!  ➜  http://YOUR_IP/$NEW_DIR"
+                    sudo wget -qO /root/temp.zip "https://drive.google.com/uc?export=download&id=$FILE_ID"
+                    sudo unzip -o /root/temp.zip -d /var/www/html/$NEW_DIR
+                    sudo rm /root/temp.zip
+                    
+                    if [ -f "/var/www/html/$NEW_DIR/database_backup.sql" ]; then
+                        echo -e "${GREEN}[*] Database found! Restoring automatically...${RESET}"
+                        sudo mysql < "/var/www/html/$NEW_DIR/database_backup.sql"
+                        sudo rm "/var/www/html/$NEW_DIR/database_backup.sql"
+                        echo -e "${GREEN}[+] Database Restored Successfully!${RESET}"
+                    fi
+
+                    sudo chown -R www-data:www-data /var/www/html/$NEW_DIR
+                    sudo chmod -R 755 /var/www/html/$NEW_DIR
+                    echo -e "${GREEN}[+] Project Installed Successfully! Link: http://YOUR_IP/$NEW_DIR ${RESET}"
                 fi
             fi
-            press_enter
+            read -p "Press Enter to return..."
             ;;
-
-        # ══════════════════════════════════════════════════════════
+            
         6)
-            clear; print_gap; echo -e "${BOLD}${YELLOW}    ╔═══════════════════════════════════════════════════════╗${RESET}"; echo -e "${BOLD}${YELLOW}    ║          💾  BACKUP PROJECT TO GDRIVE                 ║${RESET}"; echo -e "${BOLD}${YELLOW}    ╚═══════════════════════════════════════════════════════╝${RESET}"; print_gap
-            ls -d /var/www/html/*/ 2>/dev/null | awk -F/ '{print "    \033[93m  ▸  \033[0m\033[97m" $(NF-1) "\033[0m"}'
-            prompt_input "Enter project folder name to backup" FOLDER_NAME
+            echo -e "\n${YELLOW}[*] BACKUP SPECIFIC PROJECT TO GDRIVE${RESET}"
+            echo "Available Projects:"
+            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null
+            read -p "Enter the project folder name exactly as above: " FOLDER_NAME
+            
             if [ -d "/var/www/html/$FOLDER_NAME" ]; then
-                DATE=$(date +"%d-%b-%Y_%I-%M-%p"); BACKUP_NAME="${FOLDER_NAME}_Backup_$DATE.zip"
+                DATE=$(date +"%d-%b-%Y_%I-%M-%p")
+                BACKUP_NAME="${FOLDER_NAME}_Backup_$DATE.zip"
+                
+                echo -e "${GREEN}[*] Exporting Database to project folder...${RESET}"
                 sudo mysqldump --all-databases > /var/www/html/$FOLDER_NAME/database_backup.sql
-                cd /var/www/html/$FOLDER_NAME && sudo zip -r -q $TEMP_DIR/$BACKUP_NAME .
-                sudo chmod 777 $TEMP_DIR/$BACKUP_NAME
-                rclone copy $TEMP_DIR/$BACKUP_NAME gdrive:Server_Backups/
-                sudo rm /var/www/html/$FOLDER_NAME/database_backup.sql $TEMP_DIR/$BACKUP_NAME
-                success_msg "Backup Complete! Check your Google Drive."
-            else error_msg "Not found!"; fi; press_enter;;
+                
+                echo -e "${GREEN}[*] Zipping project files cleanly...${RESET}"
+                cd /var/www/html/$FOLDER_NAME && sudo zip -r -q /root/$BACKUP_NAME .
+                
+                echo -e "${GREEN}[*] Uploading to Google Drive...${RESET}"
+                rclone copy /root/$BACKUP_NAME gdrive:Server_Backups/
+                
+                sudo rm /var/www/html/$FOLDER_NAME/database_backup.sql /root/$BACKUP_NAME
+                echo -e "${GREEN}[+] Backup Successful! Check your Google Drive.${RESET}"
+            else
+                echo -e "${RED}[-] Project folder '$FOLDER_NAME' not found!${RESET}"
+            fi
+            read -p "Press Enter to return..."
+            ;;
             
         7)
-            clear; prompt_input "Enter project folder name to DELETE" DEL_DIR
-            if [ -d "/var/www/html/$DEL_DIR" ]; then echo -ne "    ${BOLD}${RED}  ❯  Type 'YES' to confirm : ${RESET}"; read -r CONFIRM; if [ "$CONFIRM" == "YES" ]; then sudo rm -rf /var/www/html/$DEL_DIR; success_msg "Deleted."; fi; fi; press_enter;;
+            echo -e "\n${RED}[*] DELETE A PROJECT${RESET}"
+            echo "Available Projects:"
+            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null
+            read -p "Enter the project folder name you want to DELETE: " DEL_DIR
+            
+            if [ -d "/var/www/html/$DEL_DIR" ]; then
+                echo -e "${RED}WARNING: You are about to permanently delete '$DEL_DIR'.${RESET}"
+                read -p "Type 'YES' to confirm deletion: " CONFIRM
+                if [ "$CONFIRM" == "YES" ]; then
+                    sudo rm -rf /var/www/html/$DEL_DIR
+                    echo -e "${GREEN}[+] Project '$DEL_DIR' deleted successfully!${RESET}"
+                else
+                    echo -e "${YELLOW}[*] Deletion cancelled.${RESET}"
+                fi
+            else
+                echo -e "${RED}[-] Folder not found!${RESET}"
+            fi
+            read -p "Press Enter to return..."
+            ;;
             
         8)
-            clear; if ! command -v rclone &> /dev/null; then sudo -v ; curl https://rclone.org/install.sh | sudo bash; else success_msg "Rclone installed!"; fi; rclone config; press_enter;;
+            echo -e "\n${YELLOW}[*] INSTALL & SETUP RCLONE${RESET}"
+            if ! command -v rclone &> /dev/null; then
+                echo -e "${GREEN}[*] Rclone not found. Installing now...${RESET}"
+                sudo -v ; curl https://rclone.org/install.sh | sudo bash
+            else
+                echo -e "${GREEN}[+] Rclone is already installed!${RESET}"
+            fi
+            echo -e "${YELLOW}[*] Opening Rclone Config... (Press 'n' for new remote, name it 'gdrive')${RESET}"
+            rclone config
+            read -p "Press Enter to return to menu..."
+            ;;
             
         9)
-            clear; sudo apt-get update -y; sudo apt-get install fail2ban -y; sudo systemctl enable fail2ban; sudo systemctl start fail2ban; success_msg "Fail2Ban is active."; press_enter;;
+            echo -e "\n${YELLOW}[*] ADD SECURITY (Auto Update & Firewall)...${RESET}"
+            echo -e "${GREEN}[*] Updating Server Packages...${RESET}"
+            sudo apt-get update -y && sudo apt-get upgrade -y
+            echo -e "${GREEN}[*] Installing Fail2Ban...${RESET}"
+            sudo apt-get install fail2ban -y
+            sudo systemctl enable fail2ban
+            sudo systemctl start fail2ban
+            echo -e "${GREEN}[+] Security Updated and Firewall Protected!${RESET}"
+            read -p "Press Enter to return..."
+            ;;
             
         10)
-            clear; cat << 'EOF' > "$USER_HOME/nightly_master_backup.sh"
+            echo -e "\n${YELLOW}[*] AUTO SET NIGHTLY BACKUP (11:00 PM)${RESET}"
+            cat << 'EOF' > /root/nightly_master_backup.sh
 #!/bin/bash
 DATE=$(date +"%d-%b-%Y")
-sudo mysqldump --all-databases > /tmp/all_db_nightly.sql
+sudo mysqldump --all-databases > /root/all_db_nightly.sql
 for dir in /var/www/html/*/; do
-    PROJ_NAME=$(basename "$dir"); ZIP_NAME="${PROJ_NAME}_AutoBackup_${DATE}.zip"
-    sudo cp /tmp/all_db_nightly.sql "$dir/database_backup.sql"
-    cd "$dir" && sudo zip -r -q /tmp/$ZIP_NAME .
+    PROJ_NAME=$(basename "$dir")
+    ZIP_NAME="${PROJ_NAME}_AutoBackup_${DATE}.zip"
+    sudo cp /root/all_db_nightly.sql "$dir/database_backup.sql"
+    cd "$dir" && sudo zip -r -q /root/$ZIP_NAME .
     sudo rm "$dir/database_backup.sql"
-    sudo chmod 777 /tmp/$ZIP_NAME
-    rclone copy /tmp/$ZIP_NAME gdrive:Server_Backups/Auto_Nightly/; sudo rm /tmp/$ZIP_NAME
+    rclone copy /root/$ZIP_NAME gdrive:Server_Backups/Auto_Nightly/
+    rm /root/$ZIP_NAME
 done
-sudo rm /tmp/all_db_nightly.sql
+rm /root/all_db_nightly.sql
 EOF
-            sudo chmod +x "$USER_HOME/nightly_master_backup.sh"; CRON_JOB="0 23 * * * $USER_HOME/nightly_master_backup.sh > $USER_HOME/backup_log.txt 2>&1"; (crontab -l 2>/dev/null | grep -v "nightly_master_backup.sh"; echo "$CRON_JOB") | crontab -; success_msg "Set for 11:00 PM."; press_enter;;
+            sudo chmod +x /root/nightly_master_backup.sh
+            CRON_JOB="0 23 * * * /root/nightly_master_backup.sh > /root/backup_log.txt 2>&1"
+            (crontab -l 2>/dev/null | grep -v "nightly_master_backup.sh"; echo "$CRON_JOB") | crontab -
+            echo -e "${GREEN}[+] Daily Auto Backup scheduled at 11:00 PM for ALL projects!${RESET}"
+            read -p "Press Enter to return..."
+            ;;
             
         11)
-            clear; prompt_input "Enter Domain Name" SSL_DOMAIN; prompt_input "Enter Email" SSL_EMAIL; sudo apt install certbot python3-certbot-apache -y >/dev/null 2>&1; sudo certbot --apache -d $SSL_DOMAIN -d www.$SSL_DOMAIN --non-interactive --agree-tos -m $SSL_EMAIL --redirect; press_enter;;
-            
+            echo -e "\n${YELLOW}[*] AUTO SSL (HTTPS) SETUP${RESET}"
+            read -p "Enter Domain Name (e.g. example.com): " SSL_DOMAIN
+            read -p "Enter your Email (for SSL notice): " SSL_EMAIL
+            echo -e "${GREEN}[*] Installing Certbot (if not installed)...${RESET}"
+            sudo apt install certbot python3-certbot-apache -y >/dev/null 2>&1
+            echo -e "${GREEN}[*] Applying SSL Certificate... Please wait!${RESET}"
+            sudo certbot --apache -d $SSL_DOMAIN -d www.$SSL_DOMAIN --non-interactive --agree-tos -m $SSL_EMAIL --redirect
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}[+] SSL Installed Successfully! Your site is now secure (HTTPS).${RESET}"
+            else
+                echo -e "${RED}[-] SSL Setup Failed! Check if your domain is pointing to this server's IP.${RESET}"
+            fi
+            read -p "Press Enter to return..."
+            ;;
+
         12)
-            clear; prompt_input "Enter User Mobile / Login ID" TARGET_ID; prompt_input "Enter New Password" NEW_PASS
-            HASHED_PASS=$(php -r "echo password_hash('$NEW_PASS', PASSWORD_DEFAULT);")
-            sudo mysql -e "USE rainbow_school; UPDATE users SET password='$HASHED_PASS' WHERE mobile='$TARGET_ID';"
-            press_enter;;
+            echo -e "\n${MAGENTA}[*] CHANGE WEB ADMIN PASSWORD${RESET}"
+            echo -e "Current Database Users:"
+            sudo mysql -e "USE rainbow_school; SELECT id, name, mobile, role FROM users;"
+            echo "-----------------------------------"
+            read -p "Enter User Mobile/Login ID (e.g. admin or 7908516697): " TARGET_ID
+            read -p "Enter New Password: " NEW_PASS
             
-        13)
-            clear; prompt_input "Enter folder name to explore" EXPLORE_DIR; if [ -d "/var/www/html/$EXPLORE_DIR" ]; then cd "/var/www/html/$EXPLORE_DIR"; echo "Exploring $(pwd)"; fi; press_enter;;
-
-        # ══════════════════════════════════════════════════════════
-        # 🟢 SMART EXPORT & GDRIVE AUTO-UPLOAD (OPTION 14)
-        # ══════════════════════════════════════════════════════════
-        14)
-            clear
-            print_gap
-            echo -e "${BOLD}${YELLOW}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${YELLOW}    ║          📤  SMART EXPORT & UPLOAD ALL DBs            ║${RESET}"
-            echo -e "${BOLD}${YELLOW}    ╚═══════════════════════════════════════════════════════╝${RESET}"
-            print_gap
-
-            step_msg "Auto-finding all your created databases..."
-            echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Enter MySQL 'root' Password : ${RESET}"
-            read -rs DB_PASS
-            echo ""
+            sudo mysql -e "USE rainbow_school; UPDATE users SET password='$NEW_PASS' WHERE mobile='$TARGET_ID';"
             
-            DB_LIST=$(sudo mysql -u root -p"$DB_PASS" -e "SHOW DATABASES;" 2>/dev/null | awk '{print $1}' | grep -v -E "^(Database|information_schema|performance_schema|mysql|sys)$")
-
-            if [ -z "$DB_LIST" ]; then
-                error_msg "No custom databases found to export!"
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}[+] Password successfully updated for '$TARGET_ID'!${RESET}"
             else
-                print_gap
-                info_msg "Found the following databases: "
-                echo -e "    ${WHITE}$DB_LIST${RESET}" | tr '\n' ' '
-                echo ""
-                print_gap
-
-                step_msg "Exporting Databases..."
-                FILE_NAME="Master_Database_Backup_$(date +%d-%b-%Y).sql"
-                FILE_PATH="$USER_HOME/$FILE_NAME"
-                
-                sudo mysqldump -u root -p"$DB_PASS" --databases $DB_LIST > "$FILE_PATH"
-
-                if [ $? -eq 0 ]; then
-                    sudo chmod 777 "$FILE_PATH"
-                    success_msg "Database Exported Locally!"
-                    echo -e "    ${DIM}${WHITE}  File saved locally at: ${BOLD}$FILE_PATH${RESET}"
-                    
-                    print_gap
-                    if command -v rclone &> /dev/null && rclone config show gdrive &> /dev/null; then
-                        step_msg "Uploading Database to Google Drive (Server_Backups/Databases/) ..."
-                        rclone copy "$FILE_PATH" gdrive:Server_Backups/Databases/
-                        
-                        if [ $? -eq 0 ]; then
-                            success_msg "Database successfully backed up to Google Drive! ☁️"
-                        else
-                            error_msg "Google Drive Upload Failed! Check your rclone connection."
-                        fi
-                    else
-                        warn_msg "Rclone (gdrive) not configured. Skipping Google Drive backup."
-                        info_msg "Use Option 8 to setup Rclone if you want auto Google Drive backups."
-                    fi
-                else
-                    error_msg "Export Failed! Check password."
-                fi
+                echo -e "${RED}[-] Error: Could not update password.${RESET}"
             fi
-            press_enter
+            read -p "Press Enter to return..."
             ;;
 
-        # ══════════════════════════════════════════════════════════
-        # 🟢 SMART 1-CLICK IMPORT FROM DRIVE LINK (OPTION 15)
-        # ══════════════════════════════════════════════════════════
-        15)
-            clear
-            print_gap
-            echo -e "${BOLD}${MAGENTA}    ╔═══════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${MAGENTA}    ║          📥  SMART 1-CLICK DB IMPORT                  ║${RESET}"
-            echo -e "${BOLD}${MAGENTA}    ╚═══════════════════════════════════════════════════════╝${RESET}"
-            print_gap
-
-            TARGET_SQL=""
-            
-            # Ask for Google Drive Link first
-            print_gap
-            echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Paste Google Drive File Link ${DIM}(Leave blank & press ENTER for local file)${RESET}${BOLD}${WHITE} : ${RESET}"
-            read -r G_LINK
-
-            if [ -n "$G_LINK" ]; then
-                # Extract File ID from the link
-                FILE_ID=$(echo "$G_LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
-                
-                if [ -z "$FILE_ID" ] || [ "$FILE_ID" == "$G_LINK" ]; then
-                    error_msg "Invalid Google Drive Link format!"
-                else
-                    TARGET_SQL="/tmp/Smart_Imported_DB.sql"
-                    step_msg "Downloading Database from Google Drive..."
-                    
-                    sudo wget -qO "$TARGET_SQL" "https://drive.google.com/uc?export=download&id=$FILE_ID"
-                    
-                    if [ -s "$TARGET_SQL" ]; then
-                        success_msg "Database File Downloaded Successfully!"
-                    else
-                        error_msg "Failed to download! Make sure the Drive link is 'Anyone with the link can view'."
-                        TARGET_SQL=""
-                    fi
-                fi
-            else
-                # If no link provided, scan local files
-                section_header "AVAILABLE LOCAL SQL FILES" "$CYAN"
-                print_gap
-                mapfile -t sql_files < <(sudo find $USER_HOME /root /tmp /var/www/html -maxdepth 5 -type f -iname "*.sql" 2>/dev/null)
-
-                if [ ${#sql_files[@]} -eq 0 ]; then
-                    error_msg "No .sql files found on the server!"
-                else
-                    for i in "${!sql_files[@]}"; do
-                        printf "    ${MAGENTA}${BOLD}  %3d${RESET}  ${WHITE}%s${RESET}\n" "$((i+1))" "${sql_files[$i]}"
-                    done
-                    print_gap
-                    draw_line
-
-                    echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Select SQL file to import ${DIM}(0 to cancel)${RESET}${BOLD}${WHITE} : ${RESET}"
-                    read -r FILE_NUM
-
-                    if [[ "$FILE_NUM" =~ ^[0-9]+$ ]] && [ "$FILE_NUM" -gt 0 ] && [ "$FILE_NUM" -le "${#sql_files[@]}" ]; then
-                        FILE_INDEX=$((FILE_NUM-1))
-                        TARGET_SQL="${sql_files[$FILE_INDEX]}"
-                    fi
-                fi
-            fi
-
-            # Proceed to Import if TARGET_SQL is set and exists
-            if [ -n "$TARGET_SQL" ] && [ -f "$TARGET_SQL" ]; then
-                print_gap
-                step_msg "Target Database File: $TARGET_SQL"
-                
-                echo -ne "    ${BOLD}${CYAN}  ❯  ${WHITE}Enter MySQL 'root' Password : ${RESET}"
-                read -rs DB_PASS
-                echo ""
-                print_gap
-                
-                # Check if file has "CREATE DATABASE" instructions
-                HAS_CREATE=$(grep -i "CREATE DATABASE" "$TARGET_SQL")
-                
-                if [ -z "$HAS_CREATE" ]; then
-                    # Standard backup without CREATE DATABASE commands
-                    DB_NAME=$(basename "$TARGET_SQL" .sql | sed 's/[^a-zA-Z0-9_]//g')
-                    step_msg "Auto-creating missing database: '$DB_NAME' ..."
-                    sudo mysql -u root -p"$DB_PASS" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" 2>/dev/null
-                    
-                    step_msg "Importing data into '$DB_NAME'..."
-                    sudo mysql -u root -p"$DB_PASS" "$DB_NAME" < "$TARGET_SQL"
-                else
-                    # Master backup created by Option 14
-                    step_msg "Reading Master File... Automatically creating and importing all databases!"
-                    sudo mysql -u root -p"$DB_PASS" < "$TARGET_SQL"
-                fi
-
-                if [ $? -eq 0 ]; then
-                    success_msg "All Databases Imported Successfully! 🎉"
-                else
-                    error_msg "Import Failed! Check password or SQL file format."
-                fi
-                
-                # Cleanup temp file if downloaded from drive
-                if [ "$TARGET_SQL" == "/tmp/Smart_Imported_DB.sql" ]; then
-                    sudo rm -f "$TARGET_SQL"
-                fi
-            else
-                warn_msg "Action Cancelled or File Not Found."
-            fi
-            press_enter
-            ;;
-
-        # ══════════════════════════════════════════════════════════
         0)
             clear
-            print_gap
-            print_gap
-            echo -e "${BOLD}${CYAN}    ╔═════════════════════════════════════════════════════════╗${RESET}"
-            echo -e "${BOLD}${CYAN}    ║                                                         ║${RESET}"
-            echo -e "${BOLD}${CYAN}    ║${RESET}   ${GREEN}${BOLD}  ✔  Exiting Master Tool. Server is safe!            ${RESET}${BOLD}${CYAN}║${RESET}"
-            echo -e "${BOLD}${CYAN}    ║${RESET}   ${DIM}${WHITE}     Have a great day, Prodip Bandhu!               ${RESET}${BOLD}${CYAN}║${RESET}"
-            echo -e "${BOLD}${CYAN}    ║                                                         ║${RESET}"
-            echo -e "${BOLD}${CYAN}    ╚═════════════════════════════════════════════════════════╝${RESET}"
-            print_gap
-            print_gap
+            echo -e "${GREEN}Exiting Master Tool. Server is safe. Have a great day, Prodip Bandhu!${RESET}"
             exit 0
             ;;
-
-        # ══════════════════════════════════════════════════════════
+            
         *)
-            clear
-            print_gap
-            error_msg "Invalid option '$choice'! Please select between 0 and 15."
+            echo -e "${RED}Invalid Option! Please try again.${RESET}"
             sleep 1
             ;;
     esac
