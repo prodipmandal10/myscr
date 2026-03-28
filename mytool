@@ -14,14 +14,14 @@ while true; do
     echo -e "${YELLOW}=====================================================${RESET}"
     echo -e "${MAGENTA}                 👑 MADE BY PRODIP 👑                ${RESET}"
     echo -e "${YELLOW}=====================================================${RESET}"
-    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.4 🌟      ${RESET}"
+    echo -e "${GREEN}      🌟 SERVER MANAGEMENT MASTER TOOL V3.5 🌟      ${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
     echo -e "${CYAN}1) 🛠️  INITIAL SETUP (Install Apache, PHP, MySQL)${RESET}"
     echo -e "${CYAN}2) 🌐 SETUP DOMAIN (Link Domain to a Project)${RESET}"
     echo -e "${CYAN}3) 📊 SERVER HEALTH CHECK (Live Status)${RESET}"
     echo -e "${BLUE}-----------------------------------------------------${RESET}"
     echo -e "${CYAN}4) 📂 SHOW ALL PROJECTS (Running Websites)${RESET}"
-    echo -e "${CYAN}5) 🚀 INSTALL NEW PROJECT (From GDrive Link)${RESET}"
+    echo -e "${CYAN}5) 🚀 INSTALL NEW PROJECT (Full Zip Restore with DB)${RESET}"
     echo -e "${CYAN}6) 💾 BACKUP A SPECIFIC PROJECT (To GDrive)${RESET}"
     echo -e "${RED}7) 🗑️  DELETE A PROJECT (Remove Website)${RESET}"
     echo -e "${YELLOW}8) ⚙️  INSTALL & SETUP RCLONE (Auto)${RESET}"
@@ -30,7 +30,7 @@ while true; do
     echo -e "${GREEN}11) 🔒 AUTO SSL (HTTPS) SETUP (Certbot)${RESET}"
     echo -e "${MAGENTA}12) 🔑 CHANGE WEB ADMIN PASSWORD (Live)${RESET}"
     echo -e "${YELLOW}13) 📝 FILE EXPLORER & EDITOR (Live Code Edit)${RESET}"
-    echo -e "${CYAN}14) 🗄️  MYSQL DB MANAGER (Tree View & Create)${RESET}"
+    echo -e "${CYAN}14) 🗄️  MYSQL DB MANAGER (Tree View, Create & Drop)${RESET}"
     echo -e "${MAGENTA}15) ☁️  AUTO DB RESTORE FROM GDRIVE (Fixes Root/User Error)${RESET}"
     echo -e "${RED}0) ❌ EXIT${RESET}"
     echo -e "${BLUE}=====================================================${RESET}"
@@ -89,19 +89,33 @@ EOF
             ;;
         
         5)
-            echo -e "\n${YELLOW}[*] INSTALL NEW PROJECT AUTO${RESET}"
-            read -p "Enter Google Drive Share Link: " LINK
+            echo -e "\n${YELLOW}[*] INSTALL NEW PROJECT AUTO (With DB Magic Fix)${RESET}"
+            read -p "Enter Google Drive Share Link (ZIP File): " LINK
             FILE_ID=$(echo "$LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
             if [ -n "$FILE_ID" ]; then
                 read -p "Enter NEW folder name: " NEW_DIR
                 NEW_DIR=$(echo "$NEW_DIR" | tr -d ' ')
                 sudo mkdir -p /var/www/html/$NEW_DIR
-                sudo wget -qO /root/temp.zip "https://drive.google.com/uc?export=download&id=$FILE_ID"
-                sudo unzip -o /root/temp.zip -d /var/www/html/$NEW_DIR
-                sudo rm /root/temp.zip
+                echo -e "${GREEN}[*] Downloading and Extracting Project...${RESET}"
+                sudo wget -qO /tmp/temp_proj.zip "https://drive.google.com/uc?export=download&id=$FILE_ID"
+                sudo unzip -o /tmp/temp_proj.zip -d /var/www/html/$NEW_DIR
+                sudo rm /tmp/temp_proj.zip
+                
+                # MAGIC FIX ADDED HERE FOR ZIP RESTORES
+                if [ -f "/var/www/html/$NEW_DIR/database_backup.sql" ]; then
+                    echo -e "${YELLOW}[*] Database found! Applying 'DEFINER' fix and Restoring...${RESET}"
+                    sudo sed -i 's/DEFINER=[^*]*\*/\*/g' "/var/www/html/$NEW_DIR/database_backup.sql"
+                    sudo sed -i 's/DEFINER=[^ ]* //g' "/var/www/html/$NEW_DIR/database_backup.sql"
+                    sudo mysql < "/var/www/html/$NEW_DIR/database_backup.sql"
+                    sudo rm "/var/www/html/$NEW_DIR/database_backup.sql"
+                    echo -e "${GREEN}[+] Database Restored Successfully!${RESET}"
+                fi
+
                 sudo chown -R www-data:www-data /var/www/html/$NEW_DIR
                 sudo chmod -R 755 /var/www/html/$NEW_DIR
                 echo -e "${GREEN}[+] Project Installed! Link: http://YOUR_IP/$NEW_DIR ${RESET}"
+            else
+                echo -e "${RED}[-] Invalid Link!${RESET}"
             fi
             read -p "Press Enter to return..."
             ;;
@@ -113,20 +127,32 @@ EOF
             if [ -d "/var/www/html/$FOLDER_NAME" ]; then
                 DATE=$(date +"%d-%b-%Y_%I-%M-%p")
                 BACKUP_NAME="${FOLDER_NAME}_Backup_$DATE.zip"
+                echo -e "${GREEN}[*] Exporting DB and Zipping...${RESET}"
                 sudo mysqldump --all-databases > /var/www/html/$FOLDER_NAME/database_backup.sql
-                cd /var/www/html/$FOLDER_NAME && sudo zip -r -q /root/$BACKUP_NAME .
-                rclone copy /root/$BACKUP_NAME gdrive:Server_Backups/
-                sudo rm /var/www/html/$FOLDER_NAME/database_backup.sql /root/$BACKUP_NAME
+                cd /var/www/html/$FOLDER_NAME && sudo zip -r -q /tmp/$BACKUP_NAME .
+                echo -e "${GREEN}[*] Uploading to GDrive...${RESET}"
+                rclone copy /tmp/$BACKUP_NAME gdrive:Server_Backups/
+                sudo rm /var/www/html/$FOLDER_NAME/database_backup.sql /tmp/$BACKUP_NAME
                 echo -e "${GREEN}[+] Backup Successful!${RESET}"
+            else
+                echo -e "${RED}[-] Folder not found!${RESET}"
             fi
             read -p "Press Enter to return..."
             ;;
             
         7)
             echo -e "\n${RED}[*] DELETE A PROJECT${RESET}"
+            ls -d /var/www/html/*/ | awk -F/ '{print "- " $(NF-1)}' 2>/dev/null
             read -p "Enter folder to DELETE: " DEL_DIR
-            sudo rm -rf /var/www/html/$DEL_DIR
-            echo -e "${GREEN}[+] Project deleted!${RESET}"
+            if [ -d "/var/www/html/$DEL_DIR" ]; then
+                read -p "Type 'YES' to confirm: " CONFIRM
+                if [ "$CONFIRM" == "YES" ]; then
+                    sudo rm -rf /var/www/html/$DEL_DIR
+                    echo -e "${GREEN}[+] Project deleted!${RESET}"
+                fi
+            else
+                echo -e "${RED}[-] Folder not found!${RESET}"
+            fi
             read -p "Press Enter to return..."
             ;;
             
@@ -147,13 +173,31 @@ EOF
             
         10)
             echo -e "\n${YELLOW}[*] AUTO SET NIGHTLY BACKUP (11:00 PM)${RESET}"
-            echo -e "${GREEN}[+] Daily Auto Backup scheduled!${RESET}"
+            cat << 'EOF' > /root/nightly_master_backup.sh
+#!/bin/bash
+DATE=$(date +"%d-%b-%Y")
+sudo mysqldump --all-databases > /root/all_db_nightly.sql
+for dir in /var/www/html/*/; do
+    PROJ_NAME=$(basename "$dir")
+    ZIP_NAME="${PROJ_NAME}_AutoBackup_${DATE}.zip"
+    sudo cp /root/all_db_nightly.sql "$dir/database_backup.sql"
+    cd "$dir" && sudo zip -r -q /tmp/$ZIP_NAME .
+    sudo rm "$dir/database_backup.sql"
+    rclone copy /tmp/$ZIP_NAME gdrive:Server_Backups/Auto_Nightly/
+    rm /tmp/$ZIP_NAME
+done
+rm /root/all_db_nightly.sql
+EOF
+            sudo chmod +x /root/nightly_master_backup.sh
+            CRON_JOB="0 23 * * * /root/nightly_master_backup.sh > /root/backup_log.txt 2>&1"
+            (crontab -l 2>/dev/null | grep -v "nightly_master_backup.sh"; echo "$CRON_JOB") | crontab -
+            echo -e "${GREEN}[+] Daily Auto Backup scheduled at 11:00 PM!${RESET}"
             read -p "Press Enter to return..."
             ;;
             
         11)
             echo -e "\n${YELLOW}[*] AUTO SSL SETUP${RESET}"
-            read -p "Domain Name: " SSL_DOMAIN
+            read -p "Domain Name (e.g. example.com): " SSL_DOMAIN
             read -p "Email: " SSL_EMAIL
             sudo apt install certbot python3-certbot-apache -y >/dev/null 2>&1
             sudo certbot --apache -d $SSL_DOMAIN -d www.$SSL_DOMAIN --non-interactive --agree-tos -m $SSL_EMAIL --redirect
@@ -162,7 +206,9 @@ EOF
 
         12)
             echo -e "\n${MAGENTA}[*] CHANGE WEB ADMIN PASSWORD${RESET}"
-            read -p "Enter Target ID: " TARGET_ID
+            echo -e "Current DB Users:"
+            sudo mysql -e "USE rainbow_school; SELECT id, name, mobile, role FROM users;" 2>/dev/null || echo "Table not found."
+            read -p "Enter Target ID/Mobile: " TARGET_ID
             read -p "Enter New Password: " NEW_PASS
             sudo mysql -e "USE rainbow_school; UPDATE users SET password='$NEW_PASS' WHERE mobile='$TARGET_ID';"
             echo -e "${GREEN}[+] Updated!${RESET}"
@@ -175,13 +221,11 @@ EOF
             shopt -s nullglob
             PROJ_ARRAY=(*/)
             shopt -u nullglob
-            
             if [ ${#PROJ_ARRAY[@]} -eq 0 ]; then
                 echo -e "${RED}[-] No projects found.${RESET}"
                 read -p "Press Enter to return..."
                 continue
             fi
-            
             echo -e "${YELLOW}Available Projects:${RESET}"
             for i in "${!PROJ_ARRAY[@]}"; do
                 PROJ_NAME=$(basename "${PROJ_ARRAY[$i]}")
@@ -189,23 +233,19 @@ EOF
             done
             echo -e "${RED}0) 🔙 Go Back${RESET}"
             read -p "Select a project [0-${#PROJ_ARRAY[@]}]: " P_CHOICE
-            
             if [[ "$P_CHOICE" == "0" ]]; then continue; fi
             if [[ "$P_CHOICE" =~ ^[0-9]+$ ]] && [[ "$P_CHOICE" -gt 0 && "$P_CHOICE" -le "${#PROJ_ARRAY[@]}" ]]; then
                 SEL_PROJ=$(basename "${PROJ_ARRAY[$((P_CHOICE-1))]}")
                 EXPLORE_DIR="/var/www/html/$SEL_PROJ"
-                
                 while true; do
                     clear
                     echo -e "${YELLOW}=====================================================${RESET}"
                     echo -e "${MAGENTA}   📂 EXPLORING: $EXPLORE_DIR ${RESET}"
                     echo -e "${YELLOW}=====================================================${RESET}"
-                    
                     cd "$EXPLORE_DIR" || break
                     shopt -s dotglob nullglob
                     ITEMS=(*)
                     shopt -u dotglob nullglob
-                    
                     for j in "${!ITEMS[@]}"; do
                         ITEM="${ITEMS[$j]}"
                         if [ -d "$ITEM" ]; then
@@ -214,21 +254,16 @@ EOF
                             echo -e "${GREEN}$((j+1))) 📄 $ITEM ${RESET}"
                         fi
                     done
-                    
                     echo -e "${BLUE}-----------------------------------------------------${RESET}"
-                    echo -e "${CYAN}N) ➕ Create New File Here (e.g., auto .php)${RESET}"
+                    echo -e "${CYAN}N) ➕ Create New File Here${RESET}"
                     echo -e "${RED}0) 🔙 Go Back / Exit${RESET}"
-                    
                     read -p "Select [0-${#ITEMS[@]} or N to Create]: " F_CHOICE
-                    
                     if [[ "$F_CHOICE" == "0" ]]; then
                         if [[ "$EXPLORE_DIR" == "/var/www/html/$SEL_PROJ" ]]; then break; else EXPLORE_DIR=$(dirname "$EXPLORE_DIR"); fi
                     elif [[ "$F_CHOICE" == "N" || "$F_CHOICE" == "n" ]]; then
-                        read -p "Enter new file name (e.g. style.css or index.php): " NEW_FILE
-                        # Auto append .php if no extension is given
+                        read -p "Enter new file name (e.g. index.php): " NEW_FILE
                         if [[ "$NEW_FILE" != *.* ]]; then NEW_FILE="$NEW_FILE.php"; fi
-                        touch "$EXPLORE_DIR/$NEW_FILE"
-                        nano "$EXPLORE_DIR/$NEW_FILE"
+                        touch "$EXPLORE_DIR/$NEW_FILE" && nano "$EXPLORE_DIR/$NEW_FILE"
                     elif [[ "$F_CHOICE" =~ ^[0-9]+$ ]] && [[ "$F_CHOICE" -gt 0 && "$F_CHOICE" -le "${#ITEMS[@]}" ]]; then
                         SEL_ITEM="${ITEMS[$((F_CHOICE-1))]}"
                         if [ -d "$SEL_ITEM" ]; then EXPLORE_DIR="$EXPLORE_DIR/$SEL_ITEM"; elif [ -f "$SEL_ITEM" ]; then nano "$SEL_ITEM"; fi
@@ -241,30 +276,32 @@ EOF
             echo -e "\n${YELLOW}[*] 🗄️ MYSQL DB MANAGER (Tree View)${RESET}"
             echo -e "${CYAN}Available Databases & Tables:${RESET}"
             DBS=$(sudo mysql -N -e "SHOW DATABASES" | grep -vE '^(information_schema|performance_schema|mysql|sys)$')
-            
             if [ -z "$DBS" ]; then
                 echo -e "${RED}No custom databases found.${RESET}"
             else
                 for db in $DBS; do
                     echo -e "📂 ${GREEN}$db${RESET}"
                     TABLES=$(sudo mysql -N -e "SHOW TABLES IN \`$db\`;")
-                    for tb in $TABLES; do
-                        echo -e "   ├── 📄 $tb"
-                    done
+                    for tb in $TABLES; do echo -e "   ├── 📄 $tb"; done
                 done
             fi
-            
             echo -e "${BLUE}-----------------------------------------------------${RESET}"
             echo -e "${CYAN}1) ➕ Create New Database${RESET}"
+            echo -e "${RED}2) 🗑️  Drop/Delete a Database${RESET}"
             echo -e "${RED}0) 🔙 Go Back${RESET}"
-            read -p "Choice [0-1]: " DB_CH
-            
+            read -p "Choice [0-2]: " DB_CH
             if [ "$DB_CH" == "1" ]; then
                 read -p "Enter new database name: " NEW_DB
                 sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`$NEW_DB\`;"
-                # Giving 'admin' user full permission to the new DB so website can connect
                 sudo mysql -e "GRANT ALL PRIVILEGES ON \`$NEW_DB\`.* TO 'admin'@'localhost'; FLUSH PRIVILEGES;"
                 echo -e "${GREEN}[+] Database '$NEW_DB' created successfully!${RESET}"
+            elif [ "$DB_CH" == "2" ]; then
+                read -p "Enter database name to DELETE: " DEL_DB
+                read -p "Type 'YES' to confirm: " CONFIRM
+                if [ "$CONFIRM" == "YES" ]; then
+                    sudo mysql -e "DROP DATABASE IF EXISTS \`$DEL_DB\`;"
+                    echo -e "${GREEN}[+] Database '$DEL_DB' deleted!${RESET}"
+                fi
             fi
             read -p "Press Enter to return..."
             ;;
@@ -273,31 +310,31 @@ EOF
             echo -e "\n${MAGENTA}[*] ☁️ AUTO DB RESTORE FROM GDRIVE (VPS/Local Fix)${RESET}"
             read -p "Enter GDrive Share Link of your SQL file: " LINK
             FILE_ID=$(echo "$LINK" | sed -E 's/.*\/d\/([a-zA-Z0-9_-]+).*/\1/')
-            
             if [ -z "$FILE_ID" ]; then
                 echo -e "${RED}[-] Invalid Link!${RESET}"
             else
-                read -p "Enter the Database Name to restore into (e.g. rainbow_school): " TARGET_DB
+                read -p "Enter Target Database Name (e.g. rainbow_school): " TARGET_DB
                 echo -e "${GREEN}[*] Downloading SQL from GDrive...${RESET}"
-                sudo wget -qO /root/downloaded_db.sql "https://drive.google.com/uc?export=download&id=$FILE_ID"
+                # Download location changed to /tmp/ to fix Permission Denied Error
+                sudo wget -qO /tmp/downloaded_db.sql "https://drive.google.com/uc?export=download&id=$FILE_ID"
                 
-                echo -e "${YELLOW}[*] Applying MAGIC FIX: Removing 'DEFINER' errors (Fixes Local/VPS issues)...${RESET}"
-                # This removes DEFINER=root@localhost which causes 99% of import errors
-                sudo sed -i 's/DEFINER=[^*]*\*/\*/g' /root/downloaded_db.sql
-                sudo sed -i 's/DEFINER=[^ ]* //g' /root/downloaded_db.sql
+                echo -e "${YELLOW}[*] Applying MAGIC FIX: Removing 'DEFINER' errors...${RESET}"
+                sudo sed -i 's/DEFINER=[^*]*\*/\*/g' /tmp/downloaded_db.sql
+                sudo sed -i 's/DEFINER=[^ ]* //g' /tmp/downloaded_db.sql
                 
-                echo -e "${GREEN}[*] Creating Database (if not exists) and Importing...${RESET}"
+                echo -e "${GREEN}[*] Creating Database & Importing...${RESET}"
                 sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`$TARGET_DB\`;"
                 sudo mysql -e "GRANT ALL PRIVILEGES ON \`$TARGET_DB\`.* TO 'admin'@'localhost'; FLUSH PRIVILEGES;"
                 
-                sudo mysql "$TARGET_DB" < /root/downloaded_db.sql
+                # Importing from the safe /tmp/ folder
+                sudo mysql "$TARGET_DB" < /tmp/downloaded_db.sql
                 
                 if [ $? -eq 0 ]; then
                     echo -e "${GREEN}[+] Database Successfully Restored to '$TARGET_DB'!${RESET}"
                 else
                     echo -e "${RED}[-] Error during import!${RESET}"
                 fi
-                sudo rm /root/downloaded_db.sql
+                sudo rm /tmp/downloaded_db.sql
             fi
             read -p "Press Enter to return..."
             ;;
