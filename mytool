@@ -354,7 +354,7 @@ EOF
                 echo -e "${BLUE}-----------------------------------------------------${RESET}"
                 echo -e "${CYAN}N) ➕ Create New Database${RESET}"
                 echo -e "${RED}D) 🗑️  Drop/Delete a Database${RESET}"
-                echo -e "${YELLOW}👉 Type a ${GREEN}Table Number [1-$((COUNTER-1))]${YELLOW} to Manage it (Add Column/Rename)${RESET}"
+                echo -e "${YELLOW}👉 Type a ${GREEN}Table Number [1-$((COUNTER-1))]${YELLOW} to Manage its Data & Structure${RESET}"
                 echo -e "${RED}0) 🔙 Go Back to Main Menu${RESET}"
                 read -p "Enter Choice: " DB_CH
                 
@@ -378,37 +378,103 @@ EOF
                     TARGET_DB="${DB_LIST_FOR_TABLE[$DB_CH]}"
                     TARGET_TABLE="${TABLE_LIST[$DB_CH]}"
                     
-                    echo -e "\n${MAGENTA}⚙️  Managing Table: ${CYAN}$TARGET_DB.$TARGET_TABLE${RESET}"
-                    echo -e "${CYAN}1) ➕ Add a New Column (VARCHAR)${RESET}"
-                    echo -e "${YELLOW}2) ✏️  Rename this Table${RESET}"
-                    echo -e "${RED}3) 🗑️  Delete (Drop) this Table${RESET}"
-                    echo -e "${BLUE}0) 🔙 Cancel${RESET}"
-                    read -p "Select Action [0-3]: " TBL_ACT
-                    
-                    case $TBL_ACT in
-                        1)
-                            read -p "Enter NEW COLUMN NAME (e.g. photo, status): " NEW_COL
-                            if [ -n "$NEW_COL" ]; then
-                                sudo mysql -e "ALTER TABLE \`$TARGET_DB\`.\`$TARGET_TABLE\` ADD \`$NEW_COL\` VARCHAR(255) NULL;"
-                                echo -e "${GREEN}[+] Magic Done! Column '$NEW_COL' added successfully to $TARGET_TABLE!${RESET}"
-                            fi
-                            ;;
-                        2)
-                            read -p "Enter NEW TABLE NAME: " NEW_TB_NAME
-                            if [ -n "$NEW_TB_NAME" ]; then
-                                sudo mysql -e "RENAME TABLE \`$TARGET_DB\`.\`$TARGET_TABLE\` TO \`$TARGET_DB\`.\`$NEW_TB_NAME\`;"
-                                echo -e "${GREEN}[+] Table renamed to '$NEW_TB_NAME'!${RESET}"
-                            fi
-                            ;;
-                        3)
-                            read -p "Type 'YES' to DROP table '$TARGET_TABLE': " CONFIRM_TB
-                            if [ "$CONFIRM_TB" == "YES" ]; then
-                                sudo mysql -e "DROP TABLE \`$TARGET_DB\`.\`$TARGET_TABLE\`;"
-                                echo -e "${GREEN}[+] Table '$TARGET_TABLE' deleted!${RESET}"
-                            fi
-                            ;;
-                    esac
-                    read -p "Press Enter to continue..."
+                    while true; do
+                        clear
+                        echo -e "\n${MAGENTA}⚙️  Managing Table: ${CYAN}$TARGET_DB.$TARGET_TABLE${RESET}"
+                        echo -e "${BLUE}=====================================================${RESET}"
+                        echo -e "${GREEN}1) 👀 View Data (Show Rows)${RESET}"
+                        echo -e "${GREEN}2) 📐 View Structure (Columns & Types)${RESET}"
+                        echo -e "${CYAN}3) ➕ Insert New Data (Add a Row)${RESET}"
+                        echo -e "${YELLOW}4) ✏️  Edit/Update Data (By Target Column)${RESET}"
+                        echo -e "${RED}5) 🗑️  Delete a Row${RESET}"
+                        echo -e "${BLUE}-----------------------------------------------------${RESET}"
+                        echo -e "${CYAN}6) ➕ Add a New Column (VARCHAR)${RESET}"
+                        echo -e "${YELLOW}7) ✏️  Rename this Table${RESET}"
+                        echo -e "${RED}8) 🗑️  Delete (Drop) this Table${RESET}"
+                        echo -e "${BLUE}0) 🔙 Go Back to Database List${RESET}"
+                        read -p "Select Action [0-8]: " TBL_ACT
+                        
+                        case $TBL_ACT in
+                            1)
+                                echo -e "\n${YELLOW}Showing Data for $TARGET_TABLE (Limit 50)...${RESET}"
+                                sudo mysql -t -e "SELECT * FROM \`$TARGET_DB\`.\`$TARGET_TABLE\` LIMIT 50;"
+                                ;;
+                            2)
+                                echo -e "\n${YELLOW}Table Structure for $TARGET_TABLE...${RESET}"
+                                sudo mysql -t -e "DESCRIBE \`$TARGET_DB\`.\`$TARGET_TABLE\`;"
+                                ;;
+                            3)
+                                echo -e "\n${CYAN}--- Insert New Row ---${RESET}"
+                                COLS=$(sudo mysql -N -e "SHOW COLUMNS FROM \`$TARGET_DB\`.\`$TARGET_TABLE\`" | awk '{print $1}')
+                                INSERT_COLS=""
+                                INSERT_VALS=""
+                                for col in $COLS; do
+                                    read -p "Enter value for '$col' (Leave blank for Auto-increment/NULL): " VAL
+                                    if [ -n "$VAL" ]; then
+                                        INSERT_COLS="$INSERT_COLS\`$col\`, "
+                                        INSERT_VALS="$INSERT_VALS'$VAL', "
+                                    fi
+                                done
+                                if [ -n "$INSERT_COLS" ]; then
+                                    INSERT_COLS=${INSERT_COLS%, }
+                                    INSERT_VALS=${INSERT_VALS%, }
+                                    sudo mysql -e "INSERT INTO \`$TARGET_DB\`.\`$TARGET_TABLE\` ($INSERT_COLS) VALUES ($INSERT_VALS);"
+                                    if [ $? -eq 0 ]; then echo -e "${GREEN}[+] Data Inserted Successfully!${RESET}"; else echo -e "${RED}[-] Failed to insert data.${RESET}"; fi
+                                else
+                                    echo -e "${RED}[!] No data provided. Cancelled.${RESET}"
+                                fi
+                                ;;
+                            4)
+                                echo -e "\n${YELLOW}--- Edit Existing Data ---${RESET}"
+                                read -p "Enter the TARGET COLUMN to match (e.g., id): " W_COL
+                                read -p "Enter the TARGET VALUE (e.g., 5): " W_VAL
+                                read -p "Enter the COLUMN TO UPDATE (e.g., status): " U_COL
+                                read -p "Enter the NEW VALUE: " U_VAL
+                                sudo mysql -e "UPDATE \`$TARGET_DB\`.\`$TARGET_TABLE\` SET \`$U_COL\`='$U_VAL' WHERE \`$W_COL\`='$W_VAL';"
+                                if [ $? -eq 0 ]; then echo -e "${GREEN}[+] Row Updated Successfully!${RESET}"; else echo -e "${RED}[-] Failed to update data.${RESET}"; fi
+                                ;;
+                            5)
+                                echo -e "\n${RED}--- Delete a Row ---${RESET}"
+                                read -p "Enter the COLUMN NAME to match (e.g., id): " D_COL
+                                read -p "Enter the VALUE to delete (e.g., 5): " D_VAL
+                                read -p "Are you sure you want to delete where $D_COL = $D_VAL? (y/n): " DEL_CONF
+                                if [[ "$DEL_CONF" == "y" || "$DEL_CONF" == "Y" ]]; then
+                                    sudo mysql -e "DELETE FROM \`$TARGET_DB\`.\`$TARGET_TABLE\` WHERE \`$D_COL\`='$D_VAL';"
+                                    echo -e "${GREEN}[+] Row Deleted!${RESET}"
+                                fi
+                                ;;
+                            6)
+                                read -p "Enter NEW COLUMN NAME (e.g., photo, status): " NEW_COL
+                                if [ -n "$NEW_COL" ]; then
+                                    sudo mysql -e "ALTER TABLE \`$TARGET_DB\`.\`$TARGET_TABLE\` ADD \`$NEW_COL\` VARCHAR(255) NULL;"
+                                    echo -e "${GREEN}[+] Magic Done! Column '$NEW_COL' added successfully to $TARGET_TABLE!${RESET}"
+                                fi
+                                ;;
+                            7)
+                                read -p "Enter NEW TABLE NAME: " NEW_TB_NAME
+                                if [ -n "$NEW_TB_NAME" ]; then
+                                    sudo mysql -e "RENAME TABLE \`$TARGET_DB\`.\`$TARGET_TABLE\` TO \`$TARGET_DB\`.\`$NEW_TB_NAME\`;"
+                                    echo -e "${GREEN}[+] Table renamed to '$NEW_TB_NAME'!${RESET}"
+                                    TARGET_TABLE="$NEW_TB_NAME" # Update local variable to prevent errors
+                                fi
+                                ;;
+                            8)
+                                read -p "Type 'YES' to DROP table '$TARGET_TABLE': " CONFIRM_TB
+                                if [ "$CONFIRM_TB" == "YES" ]; then
+                                    sudo mysql -e "DROP TABLE \`$TARGET_DB\`.\`$TARGET_TABLE\`;"
+                                    echo -e "${GREEN}[+] Table '$TARGET_TABLE' deleted!${RESET}"
+                                    break # Exit table menu since it no longer exists
+                                fi
+                                ;;
+                            0)
+                                break
+                                ;;
+                            *)
+                                echo -e "${RED}Invalid Action!${RESET}"
+                                ;;
+                        esac
+                        read -p "Press Enter to continue..."
+                    done
                 else
                     echo -e "${RED}Invalid Option!${RESET}"
                     sleep 1
